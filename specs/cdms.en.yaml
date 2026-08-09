@@ -1,0 +1,2968 @@
+openapi: 3.0.3
+info:
+  title: CDMS API
+  version: 1.0.0
+  description: 'OpenAPI specification for the REST APIs that CRScube CDMS exposes externally
+
+    through its API gateway.
+
+
+    This document covers the public integration APIs for CDMS.
+
+
+    ## Scope
+
+
+    | Area | Operations | Tag |
+
+    |------|-----------:|-----|
+
+    | CRF data upload | 1 | `crf` |
+
+    | Dataset extraction | 4 | `dataset` |
+
+    | Subject registration | 1 | `subject` |
+
+    | Central Lab | 5 | `central-lab` |
+
+
+    ## How to read the status codes
+
+
+    There are several places where HTTP status codes are used differently from what
+
+    you would expect. Review this table before you integrate.
+
+
+    | Situation | Actual response | Expected |
+
+    |-----------|-----------------|----------|
+
+    | CRF server-side processing failure | **200** + `result: false` | 5xx |
+
+    | No study access permission for CRF | **200** + `(2200)` | 403 |
+
+    | Extraction in progress / download not ready | **202** + `status: fail` | 409 |
+
+    | Resource not found (`RESOURCE_NOT_FOUND`) | **400** | 404 |
+
+    | No permission (`FORBIDDEN`) | **400** | 403 |
+
+    | Internal dataset error (`INTERNAL_SERVER_ERROR`) | **400** | 500 |
+
+    | Central Lab FileKey missing | **401** | 404 |
+
+    | Central Lab data buffer exceeded | **413** | 400 |
+
+    | Duplicate screening number (`CONFLICT`) | 409 | 409 |
+
+
+    **Never treat 2xx as success on its own.** Failures arrive with 200 and 202.
+
+
+    401, 403, 404, 500 and 504 are returned by **the gateway**. Only the CRF
+
+    endpoint delivers those errors in the `ApiResponse` format; everything else
+
+    uses `GatewayFailResponse`.
+
+
+    ## Response formats
+
+
+    | Response format | Structure | Used by |
+
+    |-----------------|-----------|---------|
+
+    | `ApiResponse` | `{txId, result, error{message, errors}}` | CRF, and gateway errors on CRF |
+
+    | `SuccessResponse` / `FailResponse` | `{status, result}` / `{status, message, error{errorCode, errorDetails}}`
+    | dataset GET |
+
+    | `ExternalSuccessResponse` / `ExternalFailResponse` | the above plus `txId` | dataset POST, subject
+    |
+
+    | `GatewayFailResponse` | `{txId, error{errorCode, errorDetails}, message, status}` | common gateway
+    errors |
+
+    | `CentralLabFailResponse` | same shape as above, different `errorCode` set | central-lab |
+
+
+    ## Version segment
+
+
+    | Target | Path | Note |
+
+    |--------|------|------|
+
+    | CRF upload | `/api/1.00` | |
+
+    | dataset, subject | `/api/1.00` | |
+
+    | central-lab | `/api/{version}` | v1, v2 |
+
+
+    ## Authentication
+
+
+    HTTP Basic Authentication (RFC 7617), verified by the gateway.
+
+
+    ---
+
+
+    Copyright (c) CRScube Co., Ltd. All Rights Reserved
+
+    '
+  contact:
+    name: CRScube
+    url: https://crscube.io
+  license:
+    name: Proprietary
+    url: https://github.com/crscube-dev/crscube-api#license
+servers:
+- url: '{scheme}://{host}'
+  description: 'CDMS API gateway host.
+
+    Contact your CRScube representative for the address of each region
+
+    (KR / JP / EU) and environment.
+
+    '
+  variables:
+    scheme:
+      default: https
+      enum:
+      - https
+      - http
+    host:
+      default: cdms-gateway.example.com
+security: []
+tags:
+- name: crf
+  description: 'CRF data upload from external EDC vendors.
+
+    '
+- name: dataset
+  description: 'SDTM dataset extraction: request, status lookup, and download.
+
+    '
+- name: subject
+  description: 'Subject registration from external systems.
+
+    '
+- name: central-lab
+  description: 'Central Lab test data upload and lookup.
+
+
+    The response format and error-code scheme differ from the other areas. Status
+
+    codes are used differently too: a missing `FileKey` returns 401, and exceeding
+
+    the data buffer returns 413.
+
+    '
+paths:
+  /api/1.00/studies/{studyId}/subjects/{subjectId}/uploadCrf:
+    parameters:
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/SubjectId'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    post:
+      tags:
+      - crf
+      operationId: uploadCrf
+      summary: Upload CRF data
+      description: 'Stores CRF items collected by an external system against a subject.
+
+
+        Processing runs as job creation → CRF data staging → upload execution, and a
+
+        failure at each stage maps to a different `GatewayError`.
+
+
+        **Server-side processing failures return HTTP 200 with `result` set to false
+
+        in the body.**
+
+
+        | Failure point | GatewayError | HTTP |
+
+        |---------------|--------------|-----:|
+
+        | Job initialization failed | `SERVER_INITIALIZATION_FAILED` | 200 |
+
+        | CRF data validation failed | `SERVER_VALIDATION_FAILED` | 200 |
+
+        | Save failed | `SERVER_SAVE_FAILED` | 200 |
+
+        | Data processing error | `SERVER_PROCESSING_FAILED` | 200 |
+
+
+        Do not judge success or failure from the HTTP status alone.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiRequest'
+      responses:
+        '200':
+          description: 'Upload succeeded, or failed during server-side processing. Use `result` to tell
+            them apart.
+
+            '
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              examples:
+                success:
+                  summary: Success
+                  value:
+                    txId: 6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91
+                    result: true
+                serverFailure:
+                  summary: Server-side processing failure (HTTP 200)
+                  value:
+                    txId: 6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91
+                    result: false
+                    error:
+                      message: Invalid CRF data
+                      errors:
+                      - (2200) ITEM_ID not found
+                noStudyAccess:
+                  summary: No study access permission (HTTP 200)
+                  value:
+                    txId: 550e8400-e29b-41d4-a716-446655440000
+                    result: false
+                    error:
+                      message: You do not have permission.
+                      errors:
+                      - (2200) You do not have access to Study.
+                unregisteredUser:
+                  summary: Unknown user (HTTP 200)
+                  value:
+                    txId: 550e8400-e29b-41d4-a716-446655440000
+                    result: false
+                    error:
+                      message: You do not have permission.
+                      errors:
+                      - (2200) User information does not exist.
+        '400':
+          $ref: '#/components/responses/GatewayBadRequest'
+        '401':
+          $ref: '#/components/responses/CrfUnauthorized'
+        '403':
+          $ref: '#/components/responses/CrfForbidden'
+        '404':
+          $ref: '#/components/responses/CrfNotFound'
+        '500':
+          $ref: '#/components/responses/GatewayServerError'
+        '504':
+          $ref: '#/components/responses/CrfGatewayTimeout'
+  /api/1.00/studies/{studyId}/dataset/domains:
+    parameters:
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    get:
+      tags:
+      - dataset
+      operationId: retrieveDatasetDomains
+      summary: List extractable domains
+      description: 'Returns the SDTM domains that can be selected for extraction.
+
+
+        Two checks are performed.
+
+
+        1. System usage permission — `RESOURCE_NOT_FOUND` (400) if missing
+
+        2. Dataset lookup permission — `FORBIDDEN` (400) if missing
+
+
+        **Both cases return HTTP 400**, not 403 or 404.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      parameters:
+      - $ref: '#/components/parameters/UserIdQuery'
+      - $ref: '#/components/parameters/RoleIdQueryOptional'
+      responses:
+        '200':
+          description: Lookup succeeded.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/SuccessResponse'
+                - type: object
+                  required:
+                  - result
+                  properties:
+                    result:
+                      type: object
+                      required:
+                      - domains
+                      properties:
+                        domains:
+                          type: array
+                          description: Returns an empty array when there are no results.
+                          items:
+                            $ref: '#/components/schemas/Domain'
+              example:
+                status: success
+                result:
+                  domains:
+                  - domainId: DM
+                    domainLabel: Demographics
+                    source: CRF
+        '400':
+          $ref: '#/components/responses/DatasetGetBadRequest'
+        '401':
+          $ref: '#/components/responses/GatewayUnauthorized'
+        '403':
+          $ref: '#/components/responses/GatewayForbidden'
+        '404':
+          $ref: '#/components/responses/GatewayNotFound'
+        '500':
+          $ref: '#/components/responses/GatewayInternalServerError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/1.00/studies/{studyId}/dataset/jobs:
+    parameters:
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    post:
+      tags:
+      - dataset
+      operationId: createDatasetExtractJob
+      summary: Create a dataset extraction job
+      description: 'Creates an asynchronous extraction job and returns its job key.
+
+        Poll progress with `GET .../dataset/jobs/{jobKey}`, then download the result
+
+        from `/download` once it completes.
+
+
+        Validation runs in the following order, and each stage fails with a different
+
+        `errorCode`.
+
+
+        1. Usage permission — `RESOURCE_NOT_FOUND` / `FORBIDDEN` (400)
+
+        2. `codeType` and `fileType` parsing — `RESOURCE_NOT_FOUND` (400)
+
+        3. Domain existence — `RESOURCE_NOT_FOUND` (400)
+
+        4. NonCRF (Audit trail) mixed with other sources — `INVALID_REQUEST` (400)
+
+        5. `codeType` x `fileType` combination — `INVALID_REQUEST` (400)
+
+        6. Job already in progress — `UNABLE_OPERATE_STATUS` (**202**)
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractDatasetRequest'
+      responses:
+        '201':
+          description: Job created.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ExternalSuccessResponse'
+                - type: object
+                  required:
+                  - result
+                  properties:
+                    result:
+                      type: object
+                      required:
+                      - jobKey
+                      properties:
+                        jobKey:
+                          type: integer
+                          format: int64
+                          description: Job key used for status lookup and download.
+              example:
+                status: success
+                txId: 8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b
+                result:
+                  jobKey: 10231
+        '202':
+          $ref: '#/components/responses/DatasetJobInProgress'
+        '400':
+          $ref: '#/components/responses/DatasetPostBadRequest'
+        '401':
+          $ref: '#/components/responses/GatewayUnauthorized'
+        '403':
+          $ref: '#/components/responses/GatewayForbidden'
+        '404':
+          $ref: '#/components/responses/GatewayNotFound'
+        '500':
+          $ref: '#/components/responses/TxIdReadFailure'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/1.00/studies/{studyId}/dataset/jobs/{jobKey}:
+    parameters:
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/JobKey'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    get:
+      tags:
+      - dataset
+      operationId: retrieveDatasetJobStatus
+      summary: Look up extraction job status
+      description: 'Returns the current status of the job. The value is the display string below.
+
+
+        | Value | Meaning | Downloadable |
+
+        |-------|---------|--------------|
+
+        | `Initialization` | Initializing | x |
+
+        | `Progress` | In progress | x |
+
+        | `Continue` | Continuing | x |
+
+        | `Success` | Succeeded | O |
+
+        | `Fail` | Failed | O |
+
+
+        If the `jobKey` does not exist, or its status is none of the five values above,
+
+        the response is `RESOURCE_NOT_FOUND` (400).
+
+
+        This endpoint does not take `roleId` (the download endpoint requires it).
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      parameters:
+      - $ref: '#/components/parameters/UserIdQuery'
+      responses:
+        '200':
+          description: Lookup succeeded.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/SuccessResponse'
+                - type: object
+                  required:
+                  - result
+                  properties:
+                    result:
+                      type: object
+                      required:
+                      - status
+                      properties:
+                        status:
+                          $ref: '#/components/schemas/DocumentStatus'
+              example:
+                status: success
+                result:
+                  status: Progress
+        '400':
+          $ref: '#/components/responses/DatasetGetBadRequest'
+        '401':
+          $ref: '#/components/responses/GatewayUnauthorized'
+        '403':
+          $ref: '#/components/responses/GatewayForbidden'
+        '404':
+          $ref: '#/components/responses/GatewayNotFound'
+        '500':
+          $ref: '#/components/responses/GatewayInternalServerError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/1.00/studies/{studyId}/dataset/jobs/{jobKey}/download:
+    parameters:
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/JobKey'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    get:
+      tags:
+      - dataset
+      operationId: downloadDatasetJobResult
+      summary: Download the extraction result file
+      description: 'Streams the output file of a completed extraction job.
+
+
+        ## When a download is possible
+
+
+        The job status must be **`Success` or `Fail`**. Calling this endpoint while the
+
+        status is `Initialization`, `Progress` or `Continue` returns **HTTP 202** with
+
+        `UNABLE_OPERATE_STATUS`. That is a 2xx, but it is a failure.
+
+
+        Even when the status qualifies, a missing output file returns
+
+        `RESOURCE_NOT_FOUND` (400).
+
+
+        `Content-Type` is derived from the file extension.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      parameters:
+      - $ref: '#/components/parameters/UserIdQuery'
+      - $ref: '#/components/parameters/RoleIdQueryRequired'
+      responses:
+        '200':
+          description: File body.
+          headers:
+            Content-Disposition:
+              description: '`attachment; filename={filename}`'
+              required: true
+              schema:
+                type: string
+            Content-Length:
+              description: File size in bytes.
+              required: true
+              schema:
+                type: integer
+                format: int64
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+                enum:
+                - no-cache, no-store, must-revalidate
+            Pragma:
+              required: true
+              schema:
+                type: string
+                enum:
+                - no-cache
+            Expires:
+              required: true
+              schema:
+                type: string
+                enum:
+                - '0'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '202':
+          $ref: '#/components/responses/DatasetDownloadNotReady'
+        '400':
+          $ref: '#/components/responses/DatasetGetBadRequest'
+        '401':
+          $ref: '#/components/responses/GatewayUnauthorized'
+        '403':
+          $ref: '#/components/responses/GatewayForbidden'
+        '404':
+          $ref: '#/components/responses/GatewayNotFound'
+        '500':
+          $ref: '#/components/responses/GatewayInternalServerError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/1.00/studies/{studyId}/teams/{teamId}/subjects:
+    parameters:
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/TeamId'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    post:
+      tags:
+      - subject
+      operationId: createExternalSubject
+      summary: Register a subject (for external systems)
+      description: 'Registers a subject from an external system. The `txId` from the request is
+
+        echoed back in both success and failure responses, so the caller can trace the
+
+        transaction.
+
+
+        Validation runs in this order.
+
+
+        1. Site existence — `RESOURCE_NOT_FOUND` if missing (**400**, not 404)
+
+        2. Duplicate screening number — `CONFLICT` (409) if duplicated
+
+
+        `studyId` is case-insensitive.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalSubjectCreateRequest'
+      responses:
+        '201':
+          description: Registration succeeded.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ExternalSuccessResponse'
+                - type: object
+                  required:
+                  - result
+                  properties:
+                    result:
+                      $ref: '#/components/schemas/ExternalSubjectCreateResponse'
+              example:
+                status: success
+                txId: 2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410
+                result:
+                  subjectId: '0001'
+        '400':
+          $ref: '#/components/responses/SubjectBadRequest'
+        '401':
+          $ref: '#/components/responses/GatewayUnauthorized'
+        '403':
+          $ref: '#/components/responses/GatewayForbidden'
+        '404':
+          $ref: '#/components/responses/GatewayNotFound'
+        '409':
+          $ref: '#/components/responses/SubjectConflict'
+        '500':
+          $ref: '#/components/responses/SubjectServerError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/{version}/studies/{studyId}/central-labs:
+    parameters:
+    - $ref: '#/components/parameters/CentralLabVersion'
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    post:
+      tags:
+      - central-lab
+      operationId: uploadCentralLabData
+      summary: Upload Central Lab data
+      description: 'Sends lab test results as JSON. The job ID (`fileKey`) is returned
+
+        immediately and processing continues asynchronously.
+
+
+        Poll progress with `GET /central-labs/{fileKey}`.
+
+
+        ## Differences between v1 and v2
+
+
+        | Item | v1 | v2 |
+
+        |------|----|----|
+
+        | `txId` | optional | **required** |
+
+        | Error response | carried in `result` | **carried in `error`** |
+
+
+        This specification describes v2.
+
+
+        The `data` items you can send depend on the BUILDER > DCL > Central Lab
+
+        configuration. Use the **ID of each configured item as the JSON key**; items
+
+        that are not configured may be omitted.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CentralLabUploadRequest'
+            example:
+              userId: thhyun
+              txId: 01edf0ad-2e96-1f0a-9e66-745197c08f9a
+              data:
+              - STUDY_ID: CUBEDEMO-2017
+                LAB_ID: CRSCUBE
+                SUBJ_ID: S-1Z-001
+                SUBJ_INIT: AAA
+                GENDER: F
+                VISIT_ID: V1
+                VISIT_DATE: '20220401'
+                TEST_ID: HDL Cholesterol
+                VALUE: 10
+                UNIT: mg/dL
+                LOWER_LIMIT: 100
+                UPPER_LIMIT: 200
+                COMMENTS: 업로드
+                VISIT_TIME: '17:15'
+                RANGE_FLAG: N
+      responses:
+        '200':
+          description: 'Accepted. Poll progress using the returned `fileKey`.
+
+            **The status is 200, not 201.**
+
+            '
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - result
+                - status
+                properties:
+                  result:
+                    $ref: '#/components/schemas/CentralLabUploadResult'
+                  status:
+                    type: string
+                    enum:
+                    - success
+              example:
+                result:
+                  fileKey: '3850993'
+                status: success
+        '400':
+          $ref: '#/components/responses/CentralLabBadRequest'
+        '401':
+          $ref: '#/components/responses/CentralLabUnauthorized'
+        '403':
+          $ref: '#/components/responses/CentralLabForbidden'
+  /api/{version}/studies/{studyId}/central-labs/{fileKey}:
+    parameters:
+    - $ref: '#/components/parameters/CentralLabVersion'
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/FileKey'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    get:
+      tags:
+      - central-lab
+      operationId: getCentralLabUploadProgress
+      summary: Look up upload processing status
+      description: 'Returns the processing status of a submitted transaction (`fileKey`).
+
+
+        Processing has two stages, `validityCheck` (validation) and `crfSync` (eCRF
+
+        synchronization); their combination determines `message`. See the
+
+        `CentralLabProgressResult` schema for the full combination table.
+
+
+        Processing is complete when `validityCheck` is no longer `Progress`.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CentralLabUserId'
+      responses:
+        '200':
+          description: Lookup succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - result
+                - status
+                properties:
+                  result:
+                    $ref: '#/components/schemas/CentralLabProgressResult'
+                  status:
+                    type: string
+                    enum:
+                    - success
+              example:
+                result:
+                  validityCheck: Partially Successful
+                  crfSync: Success
+                  fileKey: '3826822'
+                  message: Only validated Central Lab data synced.
+                status: success
+        '400':
+          $ref: '#/components/responses/CentralLabBadRequest'
+        '401':
+          $ref: '#/components/responses/CentralLabUnauthorized'
+        '403':
+          $ref: '#/components/responses/CentralLabForbidden'
+  /api/{version}/studies/{studyId}/central-labs/raw/{fileKey}:
+    parameters:
+    - $ref: '#/components/parameters/CentralLabVersion'
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/FileKey'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    get:
+      tags:
+      - central-lab
+      operationId: getCentralLabValidityCheck
+      summary: Look up validation result details
+      description: 'Returns per-row success and failure details of the validation performed on
+
+        uploaded raw data. Use the `result` parameter to select only successful (`S`)
+
+        or only failed (`F`) rows.
+
+
+        For failed rows, the reason is carried in `MESSAGE`
+
+        (for example, "This subject doesn''t exist. [Screening No.]").
+
+
+        A large result set triggers 413, so lower `rowCount` and call again.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CentralLabUserId'
+      - $ref: '#/components/parameters/ResultFlag'
+      - $ref: '#/components/parameters/PageNo'
+      - $ref: '#/components/parameters/RowCount'
+      responses:
+        '200':
+          description: 'Lookup succeeded. When there are no results, `datas` is `null` rather than an
+            empty array.
+
+            '
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - result
+                - status
+                properties:
+                  result:
+                    $ref: '#/components/schemas/CentralLabGridResult'
+                  status:
+                    type: string
+                    enum:
+                    - success
+        '400':
+          $ref: '#/components/responses/CentralLabBadRequest'
+        '401':
+          $ref: '#/components/responses/CentralLabUnauthorized'
+        '403':
+          $ref: '#/components/responses/CentralLabForbidden'
+        '413':
+          $ref: '#/components/responses/CentralLabPayloadTooLarge'
+  /api/{version}/studies/{studyId}/central-labs/sync-result/{fileKey}:
+    parameters:
+    - $ref: '#/components/parameters/CentralLabVersion'
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/FileKey'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    get:
+      tags:
+      - central-lab
+      operationId: getCentralLabSyncResult
+      summary: Look up eCRF synchronization details
+      description: 'Returns per-row success and failure details of how validated data was applied
+
+        to the eCRF.
+
+
+        Each row carries `RESULT` (success or failure), `MESSAGE`, `TEAM`,
+
+        `INPUT_TIME` and so on.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CentralLabUserId'
+      - $ref: '#/components/parameters/PageNo'
+      - $ref: '#/components/parameters/RowCount'
+      responses:
+        '200':
+          description: 'Lookup succeeded. When there are no results, `datas` is `null`.
+
+            '
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - result
+                - status
+                properties:
+                  result:
+                    $ref: '#/components/schemas/CentralLabGridResult'
+                  status:
+                    type: string
+                    enum:
+                    - success
+        '400':
+          $ref: '#/components/responses/CentralLabBadRequest'
+        '401':
+          $ref: '#/components/responses/CentralLabUnauthorized'
+        '403':
+          $ref: '#/components/responses/CentralLabForbidden'
+        '413':
+          $ref: '#/components/responses/CentralLabPayloadTooLarge'
+  /api/{version}/studies/{studyId}/central-labs/extlab/file:
+    parameters:
+    - $ref: '#/components/parameters/CentralLabVersion'
+    - $ref: '#/components/parameters/StudyId'
+    - $ref: '#/components/parameters/AcceptLanguage'
+    - $ref: '#/components/parameters/CacheControl'
+    get:
+      tags:
+      - central-lab
+      operationId: getCentralLabFileList
+      summary: List Lab upload history
+      description: 'Returns the Central Lab upload history for a study. Each row carries
+
+        `FILE_KEY`, `FILE_NAME`, `CHECK_RESULT` (validation), `SYNC_RESULT` (eCRF
+
+        synchronization), `MESSAGE` and `INPUT_TIME`.
+
+
+        Use the `FILE_KEY` obtained here to call the status and detail endpoints.
+
+        '
+      security:
+      - gatewayBasicAuth: []
+      parameters:
+      - $ref: '#/components/parameters/CentralLabUserId'
+      - $ref: '#/components/parameters/PageNo'
+      - $ref: '#/components/parameters/RowCount'
+      responses:
+        '200':
+          description: 'Lookup succeeded. When there are no results, `datas` is `null`.
+
+            '
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - result
+                - status
+                properties:
+                  result:
+                    $ref: '#/components/schemas/CentralLabGridResult'
+                  status:
+                    type: string
+                    enum:
+                    - success
+              example:
+                result:
+                  columns:
+                    STUDY_ID: CUBE_LJT_1925
+                    LAB_ID: Laboratory Name
+                    SUBJ_ID: Screening No.
+                  datas:
+                  - FILE_KEY: 3851047
+                    FILE_NAME: jsonStr_2023-05-12 12:40:23.json
+                    CHECK_RESULT: Partially Successful
+                    SYNC_RESULT: Success
+                    MESSAGE: 유효성 검사를 통과한 Central Lab 데이터만이 정상반영되었습니다.
+                    INPUT_TIME: 2023-05-12 12:40:22 (UTC+9)
+                  totalCount: 119
+                  rowCount: 3
+                  pageNo: 1
+                status: success
+        '400':
+          $ref: '#/components/responses/CentralLabBadRequest'
+        '401':
+          $ref: '#/components/responses/CentralLabUnauthorized'
+        '403':
+          $ref: '#/components/responses/CentralLabForbidden'
+        '413':
+          $ref: '#/components/responses/CentralLabPayloadTooLarge'
+components:
+  securitySchemes:
+    gatewayBasicAuth:
+      type: http
+      scheme: basic
+      description: 'External API client credentials (HTTP Basic).
+
+        **Verified by the API gateway.**
+
+
+        401 and 403 are therefore returned by the gateway, and their response format
+
+        differs from the other errors.
+
+        '
+  parameters:
+    StudyId:
+      name: studyId
+      in: path
+      required: true
+      description: 'Study identifier (Study ID).
+
+        The subject registration API uppercases the value, so lowercase input is
+
+        accepted.
+
+        '
+      schema:
+        type: string
+      example: CUBE-001
+    SubjectId:
+      name: subjectId
+      in: path
+      required: true
+      description: Subject identifier.
+      schema:
+        type: string
+      example: '0001'
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      description: 'Site (Team) identifier. A string.
+
+        '
+      schema:
+        type: string
+      example: SITE-001
+    JobKey:
+      name: jobKey
+      in: path
+      required: true
+      description: 'Extraction job key. This is the `result.jobKey` value from the
+
+        `POST /api/1.00/studies/{studyId}/dataset/jobs` response.
+
+        '
+      schema:
+        type: integer
+        format: int64
+      example: 10231
+    UserIdQuery:
+      name: userId
+      in: query
+      required: true
+      description: 'User ID (email format). Used to determine access permission.
+
+
+        - Missing: 400 (`REQUIRED_PARAMETER`, "userId must not be blank")
+
+        - Unregistered value: 400 (`RESOURCE_NOT_FOUND`, "userId does not exist.")
+
+        '
+      schema:
+        type: string
+        maxLength: 60
+      example: user@example.com
+    RoleIdQueryOptional:
+      name: roleId
+      in: query
+      required: false
+      description: 'Role ID. Used to determine access permission.
+
+
+        **It may be omitted for a user with a single role, but is required for a user
+
+        assigned two or more.** Omitting it then returns 400 (`REQUIRED_PARAMETER`,
+
+        "Role id must be specified."). An unregistered value returns 400
+
+        (`RESOURCE_NOT_FOUND`, "roleId does not exist.").
+
+        '
+      schema:
+        type: string
+        maxLength: 32
+      example: SPM
+    RoleIdQueryRequired:
+      name: roleId
+      in: query
+      required: true
+      description: 'Role ID.
+
+
+        **Omitting it always returns 400.** Send it even for a user with only one role.
+
+        '
+      schema:
+        type: string
+        maxLength: 32
+      example: SPM
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: 'Response message language. When omitted, the language of the calling client is
+
+        used. Any value other than `ko`, `ja` or `zh` returns English.
+
+        '
+      schema:
+        type: string
+        enum:
+        - en
+        - ko
+        - ja
+        - zh
+      example: en
+    CacheControl:
+      name: Cache-Control
+      in: header
+      required: false
+      description: Cache directive. The recommended value is `max-age=0`.
+      schema:
+        type: string
+      example: max-age=0
+    CentralLabVersion:
+      name: version
+      in: path
+      required: true
+      description: 'API version. Data upload and status lookup support both v1 and v2.
+
+        In v2, `txId` becomes required and errors are carried in `error` rather than
+
+        `result`.
+
+        '
+      schema:
+        type: string
+        enum:
+        - v1
+        - v2
+      example: v2
+    CentralLabUserId:
+      name: userId
+      in: query
+      required: true
+      description: 'User ID or email. Passing a user that does not exist returns 400 with the
+
+        errorCode `REQUIRED_PARAMETER` ("Required userId parameter ''User not exists''
+
+        is not present").
+
+        '
+      schema:
+        type: string
+      example: thhyun
+    FileKey:
+      name: fileKey
+      in: path
+      required: true
+      description: 'Central Lab upload job identifier. This is the `result.fileKey` value from the `POST
+        /central-labs` response.
+
+        '
+      schema:
+        type: string
+      example: '1346145'
+    PageNo:
+      name: pageNo
+      in: query
+      required: false
+      description: Page number. A malformed value returns 400 (`INVALID_PARAMETER`).
+      schema:
+        type: integer
+        default: 1
+      example: 1
+    RowCount:
+      name: rowCount
+      in: query
+      required: false
+      description: 'Rows per page. A large value triggers 413 (`Data buffer limit exceeded`), so
+
+        lower it and call again. A malformed value returns 400 (`INVALID_PARAMETER`).
+
+        '
+      schema:
+        type: integer
+        default: 10
+      example: 10
+    ResultFlag:
+      name: result
+      in: query
+      required: true
+      description: 'Which validation results to return. Only `S` (success) or `F` (failure) is
+
+        accepted; any other value returns 400 (`REQUIRED_PARAMETER`, "invalid
+
+        parameter (The result should be S or F.)").
+
+        '
+      schema:
+        type: string
+        enum:
+        - S
+        - F
+      example: F
+  responses:
+    GatewayBadRequest:
+      description: 'The request JSON is invalid, or validation failed.
+
+
+        | GatewayError | Where it occurs |
+
+        |--------------|-----------------|
+
+        | `CLIENT_BAD_REQUEST` | The request JSON could not be parsed |
+
+        | `CLIENT_VALIDATION_FAILED` | Field validation failed, or a `dataList` item failed validation
+        |
+
+
+        Each entry in `error.errors` has the form `(code) message`, where the code is
+
+        derived from the HTTP status.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            txId: 6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91
+            result: false
+            error:
+              message: Validation failed
+              errors:
+              - '(4400) dataList[0].itemId: must not be blank'
+    GatewayServerError:
+      description: 'Unclassified server error (`SERVER_UNKNOWN`).
+
+
+        Data processing errors are classified as `SERVER_PROCESSING_FAILED` and
+
+        returned with **HTTP 200**, so they do not appear here.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            result: false
+            error:
+              message: Internal Server Error
+              errors:
+              - (5500) Unknown error
+    DatasetGetBadRequest:
+      description: 'Request failed. **This endpoint returns every error as 400.**
+
+        Missing resources and permission failures return 400 as well, not 404 or 403.
+
+
+        | errorCode | Cause |
+
+        |-----------|-------|
+
+        | `REQUIRED_PARAMETER` | `userId` or `roleId` missing or blank |
+
+        | `RESOURCE_NOT_FOUND` | No system usage permission, `jobKey` not found, file not found, domain
+        not found |
+
+        | `FORBIDDEN` | No Dataset lookup permission |
+
+        | `INVALID_REQUEST` | The extraction server is unavailable |
+
+        | `INTERNAL_SERVER_ERROR` | Any other processing error (**status is still 400**) |
+
+
+        Note that `RESOURCE_NOT_FOUND` and `FORBIDDEN` return 400, not 404 or 403.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FailResponse'
+          examples:
+            requiredParameter:
+              summary: Required parameter missing
+              value:
+                status: fail
+                message: 필수 파라미터가 누락되었습니다.
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - userId must not be blank
+            forbidden:
+              summary: No permission (not 403)
+              value:
+                status: fail
+                message: 데이터 처리 중 오류가 발생했습니다.
+                error:
+                  errorCode: FORBIDDEN
+                  errorDetails:
+                  - Do not have permission to query Dataset.
+            notFound:
+              summary: Resource not found (not 404)
+              value:
+                status: fail
+                message: 데이터 처리 중 오류가 발생했습니다.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - JobKey does not exist.
+    DatasetPostBadRequest:
+      description: 'Request failed. Unlike GET, the response includes `txId`.
+
+        The status still converges on 400.
+
+
+        | errorCode | Cause |
+
+        |-----------|-------|
+
+        | `REQUIRED_PARAMETER` | Required body field missing, or validation failed |
+
+        | `RESOURCE_NOT_FOUND` | Unknown domain, invalid `codeType` or `fileType`, no system usage permission
+        |
+
+        | `FORBIDDEN` | No Dataset lookup permission |
+
+        | `INVALID_REQUEST` | Unsupported `codeType` / `fileType` combination, NonCRF (Audit trail) selected
+        together with other sources, batch server not connected |
+
+        | `INTERNAL_SERVER_ERROR` | Any other processing error (**status is still 400**) |
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExternalFailResponse'
+          example:
+            status: fail
+            txId: 8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b
+            message: 필수 파라미터가 누락되었습니다.
+            error:
+              errorCode: INVALID_REQUEST
+              errorDetails:
+              - The code type passed cannot output the file type.
+    DatasetJobInProgress:
+      description: '**This is a failure, not a success.** An extraction job is already in progress,
+
+        so a new one could not be created.
+
+
+        This failure is returned as **202**. It is a 2xx, but `status` in the body is
+
+        `fail`.
+
+        **Do not treat it as success based on the status code alone.**
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExternalFailResponse'
+          example:
+            status: fail
+            txId: 8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b
+            message: 처리할 수 없는 상태입니다.
+            error:
+              errorCode: UNABLE_OPERATE_STATUS
+              errorDetails:
+              - A job is in progress. Please try again after it's finished.
+    DatasetDownloadNotReady:
+      description: '**This is a failure, not a success.** The job is not yet ready for download.
+
+
+        A download is only possible when the job status is `Success` or `Fail`.
+
+        Calling while the status is `Initialization`, `Progress` or `Continue` returns
+
+        this response.
+
+
+        The status code is 202, but this is **a failure despite being 2xx**, and
+
+        `status` in the body is `fail`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FailResponse'
+          example:
+            status: fail
+            message: 처리할 수 없는 상태입니다.
+            error:
+              errorCode: UNABLE_OPERATE_STATUS
+              errorDetails:
+              - The job is still in progress. Please request again after it is completed.
+    SubjectBadRequest:
+      description: 'Request failed. Several causes are grouped under this status code.
+
+
+        | errorCode | Cause |
+
+        |-----------|-------|
+
+        | `REQUIRED_PARAMETER` | Validation failure such as a missing `txId`, `userId` or `roleId` |
+
+        | `RESOURCE_NOT_FOUND` | The study has no such site (**not 404**) |
+
+        | `FORBIDDEN` | The user does not belong to a site allowed to register subjects |
+
+        | `FORBIDDEN` | The role lacks the `CREATE_SUBJECT` permission |
+
+        | `FAIL_SITE_CASES` | Site contract case limit exceeded |
+
+        | `FAIL_SITE_CASES` | The study uses the CONSENT solution — register from CONSENT instead |
+
+        | `FAIL_STUDY_CASES` | Study contract case limit exceeded |
+
+        | `DATA_PROCESSING_ERROR` | Data processing error |
+
+
+        Note that `FORBIDDEN` returns 400, not 403.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExternalFailResponse'
+          examples:
+            requiredParameter:
+              summary: Validation failed
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - userId must not be blank
+                  - teamId must not be blank
+                message: Request Parameter is not valid.
+                status: fail
+            teamNotFound:
+              summary: Site not found (not 404)
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - The team does not exist in the study.
+                message: The team does not exist in the study.
+                status: fail
+            noCreateSubjectPrivilege:
+              summary: No CREATE_SUBJECT permission (not 403)
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: FORBIDDEN
+                  errorDetails:
+                  - CREATE SUBJECT Privilege is not exist.
+                message: CREATE SUBJECT Privilege is not exist.
+                status: fail
+            notInPermittedTeam:
+              summary: Not a member of a site allowed to register
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: FORBIDDEN
+                  errorDetails:
+                  - You do not belong to the team that has permission to register the user.
+                message: You do not belong to the team that has permission to register the user.
+                status: fail
+            siteCasesExceeded:
+              summary: Site contract case limit exceeded
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: FAIL_SITE_CASES
+                  errorDetails:
+                  - Cannot register more subjects. The number of registered subjects must not exceed the
+                    number of subjects in the contract (per site).
+                message: Subject cannot be registered greater than the number of contract cases for each
+                  site.
+                status: fail
+            studyCasesExceeded:
+              summary: Study contract case limit exceeded
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: FAIL_STUDY_CASES
+                  errorDetails:
+                  - Cannot register more subjects. The number of registered subjects must not exceed the
+                    number of subjects in the contract.
+                message: Subject cannot be registered greater than the number of contract cases for the
+                  study.
+                status: fail
+            consentTeam:
+              summary: Study uses the CONSENT solution
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: FAIL_SITE_CASES
+                  errorDetails:
+                  - This study is using the CONSENT solution. Please register subjects in the CONSENT.
+                message: This study is using the CONSENT solution. Please register subjects in the CONSENT.
+                status: fail
+    SubjectConflict:
+      description: 'The screening number (`scrCode`) is already in use.
+
+
+        This is the only 4xx response in this area that is not a 400.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExternalFailResponse'
+          example:
+            status: fail
+            txId: 2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410
+            message: 이미 존재하는 리소스입니다.
+            error:
+              errorCode: CONFLICT
+              errorDetails:
+              - The screening code is already in use.
+    SubjectServerError:
+      description: 'Unhandled exception.
+
+
+        Unlike the `dataset` area, this area returns unclassified exceptions as 500.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ExternalFailResponse'
+          example:
+            status: fail
+            txId: 2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410
+            message: 서버 내부 오류가 발생했습니다.
+            error:
+              errorCode: INTERNAL_SERVER_ERROR
+              errorDetails:
+              - 'java.lang.NullPointerException : null'
+    TxIdReadFailure:
+      description: 'An error occurred while handling a POST request, and `txId` could not be read
+
+        again while building the error response. In that case the abbreviated response
+
+        below is returned.
+
+
+        If the `Accept` header contains `json` you get JSON; otherwise you get an HTML
+
+        error page. **Always send `Accept: application/json`.**
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LegacyExceptionResponse'
+          example:
+            state: '400'
+    CrfUnauthorized:
+      description: 'Gateway authentication failed. **Returned by the gateway, but in the
+
+        `ApiResponse` format** — its shape differs from the other gateway errors.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          examples:
+            noHeader:
+              summary: No Authorization header
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Unauthorized
+                  errors:
+                  - (4401) No Authorization header
+            invalid:
+              summary: Basic authentication failed
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Unauthorized
+                  errors:
+                  - (4401) Invalid Authorization
+    CrfForbidden:
+      description: 'Gateway authorization denied. Use `errors` to distinguish the cause —
+
+        `User account is locked`, `User is disabled`, `User account has expired`,
+
+        `No study privilege`, `No api privilege`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
+            result: false
+            error:
+              message: Forbidden
+              errors:
+              - (4403) No api privilege
+    CrfNotFound:
+      description: The requested URI does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
+            result: false
+            error:
+              message: Not Found
+              errors:
+              - (4404) Not Found
+    CrfGatewayTimeout:
+      description: The gateway could not reach the API server. The request may be retried.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
+            result: false
+            error:
+              message: Gateway Timeout
+              errors:
+              - (5504) Gateway Timeout
+    GatewayUnauthorized:
+      description: 'Gateway authentication failed. The Authorization header is missing, or Basic
+
+        authentication failed.
+
+        **Returned by the gateway, not by the API server.**
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GatewayFailResponse'
+          examples:
+            noHeader:
+              summary: No Authorization header
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: UNAUTHORIZED
+                  errorDetails:
+                  - No Authorization header
+                message: No Authorization header
+                status: fail
+            invalid:
+              summary: Basic authentication failed
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                error:
+                  errorCode: UNAUTHORIZED
+                  errorDetails:
+                  - Invalid Authorization
+                message: Invalid Authorization
+                status: fail
+    GatewayForbidden:
+      description: 'Gateway authorization denied, because of account state or permissions.
+
+        **Returned by the gateway, not by the API server.**
+
+
+        Use `errorDetails` to distinguish the cause — `User account is locked`,
+
+        `User is disabled`, `User account has expired`, `No study privilege`,
+
+        `No api privilege`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GatewayFailResponse'
+          example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
+            error:
+              errorCode: FORBIDDEN
+              errorDetails:
+              - No api privilege
+            message: No api privilege
+            status: fail
+    GatewayNotFound:
+      description: 'The requested URI does not exist. This includes calling a path that is not
+
+        registered as a gateway route.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GatewayFailResponse'
+          example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
+            error:
+              errorCode: NOT_FOUND
+              errorDetails:
+              - Not Found
+            message: Not Found
+            status: fail
+    GatewayInternalServerError:
+      description: Server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GatewayFailResponse'
+          example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
+            error:
+              errorCode: INTERNAL_SERVER_ERROR
+              errorDetails:
+              - Internal Server Error.
+            message: Internal Server Error.
+            status: fail
+    GatewayTimeout:
+      description: 'The gateway could not reach the API server. The request may be retried.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GatewayFailResponse'
+          example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
+            error:
+              errorCode: GATEWAY_TIMEOUT
+              errorDetails:
+              - Gateway Timeout.
+            message: Gateway Timeout.
+            status: fail
+    CentralLabBadRequest:
+      description: 'Invalid request parameter.
+
+
+        | errorCode | Cause |
+
+        |-----------|-------|
+
+        | `REQUIRED_PARAMETER` | `userId` or `result` missing, request body missing, unknown userId, `result`
+        is neither S nor F |
+
+        | `INVALID_PARAMETER` | Malformed `pageNo` or `rowCount`, Study ID format mismatch |
+
+
+        Note that an unknown user is also reported as `REQUIRED_PARAMETER`.
+
+
+        The Study ID format mismatch message is localized according to
+
+        `Accept-Language`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CentralLabFailResponse'
+          examples:
+            missingUserId:
+              summary: userId missing
+              value:
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - Required String parameter 'userId' is not present
+                message: Request Parameter is not valid
+                status: fail
+            userNotExists:
+              summary: Unknown userId
+              value:
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - Required userId parameter 'User not exists' is not present
+                message: Request Parameter is not valid
+                status: fail
+            invalidFormat:
+              summary: Malformed pageNo / rowCount
+              value:
+                error:
+                  errorCode: INVALID_PARAMETER
+                  errorDetails:
+                  - invalid input format (rowCount)
+                message: Invalid input format
+                status: fail
+    CentralLabUnauthorized:
+      description: 'Authentication failure, or a permission or resource problem.
+
+
+        Three separate causes are grouped under this status code.
+
+
+        | errorCode | Cause |
+
+        |-----------|-------|
+
+        | `UNAUTHORIZED` | Authorization header missing, Basic authentication failed |
+
+        | `NO_PAGE_PERMISSION` | No read/write permission on the Lab menu |
+
+        | `NO_PAGE_PERMISSION` | FileKey not found |
+
+
+        **A missing FileKey returns 401, not 404.**
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CentralLabFailResponse'
+          examples:
+            noHeader:
+              summary: No Authorization header
+              value:
+                txId: null
+                error:
+                  errorCode: UNAUTHORIZED
+                  errorDetails:
+                  - No Authorization header
+                message: No Authorization header
+                status: fail
+            noPrivilege:
+              summary: No Lab read permission
+              value:
+                error:
+                  errorCode: NO_PAGE_PERMISSION
+                  errorDetails:
+                  - Read Privilege not exists
+                message: No Page Permission
+                status: fail
+            fileKeyNotExists:
+              summary: FileKey not found (not 404)
+              value:
+                error:
+                  errorCode: NO_PAGE_PERMISSION
+                  errorDetails:
+                  - FileKey not exists
+                message: No Page Permission
+                status: fail
+    CentralLabForbidden:
+      description: 'No access permission for the study. The `errorCode` is `NO_PAGE_PERMISSION`,
+
+        the same as for 401; only the status code distinguishes the two.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CentralLabFailResponse'
+          example:
+            error:
+              errorCode: NO_PAGE_PERMISSION
+              errorDetails:
+              - 'Study is null.[UserId: khkim01, StudyId: K0102]'
+            message: No Page Permission
+            status: fail
+    CentralLabPayloadTooLarge:
+      description: 'The result set exceeded the buffer limit. **Lower `rowCount` and call again.**
+
+
+        The status is 413, but the `errorCode` is `INTERNAL_SERVER_ERROR`.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CentralLabFailResponse'
+          example:
+            txId: null
+            error:
+              errorCode: INTERNAL_SERVER_ERROR
+              errorDetails:
+              - Data buffer limit exceeded
+            message: Data buffer limit exceeded
+            status: fail
+  schemas:
+    SuccessResponse:
+      type: object
+      description: 'Success response format for the dataset GET endpoints.
+
+        `status` is fixed to `success` and is always present.
+
+        '
+      required:
+      - status
+      - result
+      properties:
+        status:
+          type: string
+          description: Always the fixed value `success`.
+          enum:
+          - success
+        result:
+          description: 'Endpoint-specific result. Depending on the operation this is either a
+
+            `{ "<key>": content }` object or the content itself.
+
+            '
+    FailResponse:
+      type: object
+      description: 'Failure response format for the dataset GET endpoints.
+
+        `message` and `error` are always present.
+
+        '
+      required:
+      - status
+      - message
+      - error
+      properties:
+        status:
+          type: string
+          description: Always the fixed value `fail`.
+          enum:
+          - fail
+        message:
+          type: string
+          description: 'User-facing message, localized to the requested language.
+
+            The wording may change without notice, so do not branch on it.
+
+            '
+          example: 필수 파라미터가 누락되었습니다.
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+    ExternalSuccessResponse:
+      type: object
+      description: 'Success response format that echoes the request `txId`.
+
+        Used by dataset extraction job creation (POST) and external subject
+
+        registration.
+
+        '
+      required:
+      - status
+      - txId
+      - result
+      properties:
+        status:
+          type: string
+          description: Always the fixed value `success`.
+          enum:
+          - success
+        txId:
+          type: string
+          description: Echoes back the transaction identifier supplied in the request body.
+        result:
+          description: Endpoint-specific result.
+    ExternalFailResponse:
+      type: object
+      description: Failure response format corresponding to ExternalSuccessResponse.
+      required:
+      - status
+      - message
+      - error
+      properties:
+        status:
+          type: string
+          description: Always the fixed value `fail`.
+          enum:
+          - fail
+        txId:
+          type: string
+          nullable: true
+          description: 'The `txId` re-read from the request body. It is null when the body has no
+
+            `txId`. If the body cannot be read again, an abbreviated error response is
+
+            returned instead of this format.
+
+            '
+        message:
+          type: string
+          description: Localized user-facing message.
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+    ErrorDetail:
+      type: object
+      description: 'Error detail. Both keys are always present.
+
+        '
+      required:
+      - errorCode
+      - errorDetails
+      properties:
+        errorCode:
+          $ref: '#/components/schemas/ErrorCode'
+        errorDetails:
+          type: array
+          description: 'Field-level validation failure reasons, domain exception messages, and the like.
+            May be empty.
+
+            '
+          items:
+            type: string
+          example:
+          - userId must not be blank
+    ErrorCode:
+      type: string
+      description: 'Error code.
+
+
+        **These do not map one-to-one to HTTP status codes.** The combinations actually
+
+        observed on the endpoints in this document are as follows.
+
+
+        | errorCode | Actual HTTP |
+
+        |-----------|------------:|
+
+        | `REQUIRED_PARAMETER` | 400 |
+
+        | `RESOURCE_NOT_FOUND` | 400 (not 404) |
+
+        | `FORBIDDEN` | 400 (not 403) |
+
+        | `INVALID_REQUEST` | 400 |
+
+        | `DATA_PROCESSING_ERROR` | 400 |
+
+        | `INTERNAL_SERVER_ERROR` | dataset 400 / subject 500 |
+
+        | `UNABLE_OPERATE_STATUS` | 202 |
+
+        | `CONFLICT` | 409 |
+
+
+        The enum lists every defined value. `FAIL_SITE_CASES`, `FAIL_STUDY_CASES` and
+
+        `FAIL_USER_CASES` are not observed on the endpoints covered here.
+
+        '
+      enum:
+      - DATA_PROCESSING_ERROR
+      - FAIL_SITE_CASES
+      - FAIL_STUDY_CASES
+      - FAIL_USER_CASES
+      - INTERNAL_SERVER_ERROR
+      - REQUIRED_PARAMETER
+      - RESOURCE_NOT_FOUND
+      - CONFLICT
+      - FORBIDDEN
+      - UNABLE_OPERATE_STATUS
+      - INVALID_REQUEST
+    LegacyExceptionResponse:
+      type: object
+      description: 'Response from the global error handler. Exceptions not classified by
+
+        endpoint-specific error handling end up here.
+
+
+        If the `Accept` header contains `json`, the JSON below is returned with
+
+        HTTP 500; otherwise an HTML error page is returned.
+
+        '
+      required:
+      - state
+      properties:
+        state:
+          type: string
+          description: 'A body field that is always `400`. It differs from the HTTP status code (500).
+
+            '
+          enum:
+          - '400'
+    GatewayErrorCode:
+      type: string
+      description: 'Error codes returned by the gateway. This is a separate set from `ErrorCode`.
+
+
+        | Code | HTTP | Cause |
+
+        |------|-----:|-------|
+
+        | `UNAUTHORIZED` | 401 | No Authorization header / Basic authentication failed |
+
+        | `FORBIDDEN` | 403 | Account locked, disabled or expired; no study privilege; no API privilege
+        |
+
+        | `NOT_FOUND` | 404 | Requested URI does not exist |
+
+        | `INTERNAL_SERVER_ERROR` | 500 | Server error |
+
+        | `GATEWAY_TIMEOUT` | 504 | Could not reach the API server |
+
+        '
+      enum:
+      - UNAUTHORIZED
+      - FORBIDDEN
+      - NOT_FOUND
+      - INTERNAL_SERVER_ERROR
+      - GATEWAY_TIMEOUT
+    GatewayFailResponse:
+      type: object
+      description: 'Failure response returned by the gateway. It uses the same response format as
+
+        the dataset, subject and central-lab areas, but a different `errorCode` set.
+
+        '
+      required:
+      - status
+      - message
+      - error
+      properties:
+        txId:
+          type: string
+          nullable: true
+          description: The `txId` from the request body. May be null if the request was rejected at the
+            header stage.
+        error:
+          type: object
+          required:
+          - errorCode
+          - errorDetails
+          properties:
+            errorCode:
+              $ref: '#/components/schemas/GatewayErrorCode'
+            errorDetails:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+        status:
+          type: string
+          enum:
+          - fail
+    ApiRequest:
+      type: object
+      description: 'CRF data upload request body.
+
+        `version`, `studyId` and `subjectId` are filled in by the server from the path
+
+        variables.
+
+        '
+      required:
+      - txId
+      - userId
+      - dataList
+      - tranKey
+      properties:
+        txId:
+          type: string
+          maxLength: 36
+          description: 'Transaction Id (UUID version 1). Echoed back in both success and error
+
+            responses. Generate a new one for every call.
+
+            '
+          example: 6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91
+        userId:
+          type: string
+          maxLength: 60
+          description: CDMS User ID (email). The user who entered the CRF.
+          example: user@example.com
+        roleId:
+          type: string
+          maxLength: 32
+          nullable: true
+          description: 'Role ID.
+
+            **If omitted or null, it is set automatically when the user has a single role;
+
+            having two or more is an error.**
+
+            '
+          example: PI
+        reason:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: Reason for the change or transfer, recorded in the Audit Trail. Optional.
+        tranKey:
+          type: integer
+          format: int64
+          description: Transaction key on the caller side.
+        dataList:
+          type: array
+          description: 'CRF items to store. Each item is validated individually.
+
+            '
+          items:
+            $ref: '#/components/schemas/CrfData'
+    CrfData:
+      type: object
+      description: Value of a single CRF item.
+      required:
+      - visitCode
+      - itemId
+      - subItemId
+      - rowNo
+      - rowNoParent
+      - value
+      - delFlag
+      properties:
+        visitCode:
+          type: string
+          maxLength: 20
+          description: Visit code. Must match the value configured in CDMS.
+        crfgrpCode:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: 'CRF group code.
+
+            **If omitted or null, it is filled in automatically from the Item information.**
+
+            '
+        itemId:
+          type: string
+          maxLength: 20
+          description: Item ID.
+        subItemId:
+          type: string
+          maxLength: 100
+          description: Sub Item ID.
+        rowNo:
+          type: integer
+          format: int64
+          description: Row number.
+        rowNoParent:
+          type: integer
+          format: int64
+          description: Parent row number.
+        value:
+          type: string
+          maxLength: 4000
+          description: 'Item value.
+
+
+            **Required** by contract.
+
+            '
+        delFlag:
+          type: boolean
+          description: Whether the item is deleted.
+    ApiResponse:
+      type: object
+      description: 'Common success and failure response for the gateway CRF API.
+
+        Server-side processing failures (`SERVER_*`) arrive with HTTP 200 and `result`
+
+        set to false. The error classification code is not included in the body.
+
+
+        `result` is always present.
+
+        '
+      required:
+      - result
+      properties:
+        txId:
+          type: string
+          description: The `txId` from the request. May be empty if the request could not be parsed.
+          nullable: true
+        result:
+          type: boolean
+          description: Whether processing succeeded.
+        error:
+          allOf:
+          - $ref: '#/components/schemas/ApiError'
+          description: Populated only on failure. It is null in a success response.
+    ApiError:
+      type: object
+      description: 'Both keys are always present.
+
+        '
+      required:
+      - message
+      - errors
+      properties:
+        message:
+          type: string
+          description: Primary error message.
+          example: Validation failed
+        errors:
+          type: array
+          description: Detail list in the form `(code) message`.
+          items:
+            type: string
+          example:
+          - '(4400) dataList[0].itemId: must not be blank'
+    GatewayError:
+      type: string
+      description: 'Error classification code. It is not included in the body; it surfaces through
+
+        the HTTP status and the code prefix in `error.errors`.
+
+
+        | Code | HTTP | Message |
+
+        |------|------|---------|
+
+        | CLIENT_BAD_REQUEST | 400 | Request JSON is invalid |
+
+        | CLIENT_VALIDATION_FAILED | 400 | Validation failed |
+
+        | CLIENT_NO_AUTHORIZATION | 401 | No Authorization header |
+
+        | CLIENT_UNAUTHORIZED | 401 | Invalid Authorization header |
+
+        | SERVER_INITIALIZATION_FAILED | 200 | Fail to initialize |
+
+        | SERVER_VALIDATION_FAILED | 200 | Invalid CRF data |
+
+        | SERVER_SAVE_FAILED | 200 | Failed to save |
+
+        | SERVER_PROCESSING_FAILED | 200 | Data processing error |
+
+        | SERVER_UNKNOWN | 500 | Unknown error |
+
+        '
+      enum:
+      - CLIENT_BAD_REQUEST
+      - CLIENT_VALIDATION_FAILED
+      - CLIENT_NO_AUTHORIZATION
+      - CLIENT_UNAUTHORIZED
+      - SERVER_INITIALIZATION_FAILED
+      - SERVER_VALIDATION_FAILED
+      - SERVER_SAVE_FAILED
+      - SERVER_PROCESSING_FAILED
+      - SERVER_UNKNOWN
+    ExtractDatasetRequest:
+      type: object
+      description: Dataset extraction job creation request.
+      required:
+      - txId
+      - userId
+      - domainList
+      - codeType
+      - fileType
+      properties:
+        txId:
+          type: string
+          description: Transaction identifier. Echoed back in both success and failure responses.
+          example: 8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b
+        userId:
+          type: string
+          description: ID of the user requesting the extraction.
+        roleId:
+          type: string
+          nullable: true
+          description: Role ID of the requesting user.
+        domainList:
+          type: array
+          description: 'Domain IDs to extract. Use the `domainId` values returned by
+
+            `/dataset/domains`. The server uppercases them before matching, and a single
+
+            unknown value returns `RESOURCE_NOT_FOUND` (400).
+
+
+            The NonCRF (Audit trail) domain cannot be selected together with other sources
+
+            (`INVALID_REQUEST`).
+
+            '
+          items:
+            type: string
+          example:
+          - DM
+          - AE
+          - VS
+        codeType:
+          $ref: '#/components/schemas/CodeType'
+        fileType:
+          $ref: '#/components/schemas/FileType'
+    CodeType:
+      type: string
+      description: 'How code values are represented. Accepts **either the enum name or an alias**,
+
+        and aliases are case-insensitive. A value matching neither returns
+
+        `RESOURCE_NOT_FOUND` (400, "Code Type is not appropriate.").
+
+
+        | Enum name | Alias |
+
+        |-----------|-------|
+
+        | `CODE` | `code` |
+
+        | `LABEL` | `label` |
+
+        | `CODE_LABEL` | `code/label` |
+
+        | `SPLIT_CODE_LABEL` | `code+label` |
+
+
+        For the constraints against `fileType`, see the `FileType` schema.
+
+        '
+      enum:
+      - CODE
+      - LABEL
+      - CODE_LABEL
+      - SPLIT_CODE_LABEL
+      - code
+      - label
+      - code/label
+      - code+label
+      example: CODE
+    FileType:
+      type: string
+      description: 'Output file format. Enum names are accepted case-insensitively.
+
+        A value that does not match returns `RESOURCE_NOT_FOUND`
+
+        (400, "File Type is not appropriate.").
+
+
+        ## Constraints against `codeType`
+
+
+        A violation returns `INVALID_REQUEST` (400,
+
+        "The code type passed cannot output the file type.").
+
+
+        | codeType | Allowed fileType |
+
+        |----------|------------------|
+
+        | `CODE` | all (XPT, SAS, ACCESS, EXCEL, CSV) |
+
+        | `LABEL` | EXCEL, CSV |
+
+        | `CODE_LABEL` | EXCEL, CSV, SAS(*) |
+
+        | `SPLIT_CODE_LABEL` | SAS(*) |
+
+
+        (*) Only when `domainList` consists **solely of CRF sources**.
+
+        Mixing in other sources rejects the SAS combination.
+
+        '
+      enum:
+      - XPT
+      - SAS
+      - ACCESS
+      - EXCEL
+      - CSV
+      example: CSV
+    Domain:
+      type: object
+      description: 'An SDTM domain available for extraction.
+
+        All three fields are always present.
+
+        '
+      required:
+      - domainId
+      - domainLabel
+      - source
+      properties:
+        domainId:
+          type: string
+          description: Domain ID. This is the value you put in `domainList` of an extraction request.
+          example: DM
+        domainLabel:
+          type: string
+          description: Domain display name.
+          example: Demographics
+        source:
+          type: string
+          description: 'Data source category.
+
+            The NonCRF (Audit trail) source cannot be extracted together with other sources.
+
+            '
+          example: CRF
+    DocumentStatus:
+      type: string
+      description: 'Extraction job status. The **display string** below is returned verbatim.
+
+
+        | Value | Downloadable |
+
+        |-------|--------------|
+
+        | `Initialization` | x |
+
+        | `Progress` | x |
+
+        | `Continue` | x |
+
+        | `Success` | O |
+
+        | `Fail` | O |
+
+
+        A download is only possible from `Success` or `Fail`, which means
+
+        **a failed job can also be downloaded**. If no output file exists, however, the
+
+        response is `RESOURCE_NOT_FOUND` (400, "File does not exist.").
+
+
+        If the `jobKey` does not exist, or the status is none of the five values above,
+
+        the response is `RESOURCE_NOT_FOUND` (400, "JobKey does not exist.").
+
+        '
+      enum:
+      - Initialization
+      - Progress
+      - Continue
+      - Success
+      - Fail
+      example: Progress
+    ExternalSubjectCreateRequest:
+      type: object
+      description: 'Subject registration request for external systems.
+
+        '
+      required:
+      - txId
+      - userId
+      - roleId
+      properties:
+        txId:
+          type: string
+          description: 'Transaction identifier. Echoed back in both success and failure responses.
+
+            A blank value returns 400 (`txId must not be blank`).
+
+            '
+          example: 2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410
+        userId:
+          type: string
+          description: 'ID of the user performing the registration.
+
+            A blank value returns 400 (`userId must not be blank`).
+
+            '
+        roleId:
+          type: string
+          description: 'Role ID of the user performing the registration.
+
+            A blank value returns 400 (`roleId must not be blank`).
+
+            '
+        icDate:
+          type: string
+          description: Informed Consent Date.
+          nullable: true
+          example: '2026-01-15'
+        scrCode:
+          type: string
+          description: 'Screening number. A value already in use returns 409 (`CONFLICT`).
+
+            '
+          nullable: true
+          example: SCR-001
+    ExternalSubjectCreateResponse:
+      type: object
+      description: 'Registration result. Only `subjectId` is returned, and the key is always present.
+
+        '
+      required:
+      - subjectId
+      properties:
+        subjectId:
+          type: string
+          description: Identifier of the created subject.
+          example: '0001'
+    CentralLabUploadRequest:
+      type: object
+      description: 'Central Lab test result upload request. The job ID (`fileKey`) is returned
+
+        immediately and processing continues asynchronously.
+
+
+        Each object in `data` uses the **ID configured under BUILDER > DCL > Central
+
+        Lab as its JSON key**. IDs not shown in the example below can also be sent if
+
+        they are configured, and items not configured in BUILDER may be omitted.
+
+        '
+      required:
+      - userId
+      - txId
+      - data
+      properties:
+        userId:
+          type: string
+          description: User ID or email.
+          example: thhyun
+        txId:
+          type: string
+          maxLength: 36
+          description: 'Transaction Id (UUID version 1).
+
+            **Optional in v1, required in v2.**
+
+            '
+          example: 01edf0ad-2e96-1f0a-9e66-745197c08f9a
+        data:
+          type: array
+          description: Lab results to store.
+          items:
+            $ref: '#/components/schemas/CentralLabDataItem'
+    CentralLabDataItem:
+      type: object
+      description: 'A single lab result. The keys are the COL_IDs configured in BUILDER.
+
+        Below is the full list of COL_IDs documented; which ones are usable depends on
+
+        the study configuration. Keys not listed here can also be sent when they are
+
+        configured, so `additionalProperties` is left open.
+
+        '
+      additionalProperties: true
+      required:
+      - STUDY_ID
+      - LAB_ID
+      - SUBJ_ID
+      - VISIT_ID
+      - TEST_ID
+      - VALUE
+      properties:
+        STUDY_ID:
+          type: string
+          description: Study ID (CONST). A value that does not match the configured format returns 400
+            (`INVALID_PARAMETER`).
+          example: CUBEDEMO-2017
+        LAB_ID:
+          type: string
+          description: Laboratory Name (REF)
+          example: CRSCUBE
+        SUBJ_ID:
+          type: string
+          description: Screening No. (REF)
+          example: S-1Z-001
+        SUBJ_INIT:
+          type: string
+          description: Subject initial (CHAR)
+          example: AAA
+        GENDER:
+          type: string
+          description: Sex (CATE)
+          example: F
+        BIRTH_DATE:
+          type: string
+          description: Date of Birth (DATE). YYYYMMDD | YYYY-MM-DD | YYYY/MM/DD
+        VISIT_ID:
+          type: string
+          description: Visit ID (REF)
+          example: V1
+        VISIT_DATE:
+          type: string
+          description: Visit date (DATE). YYYYMMDD | YYYY-MM-DD | YYYY/MM/DD
+          example: '20220401'
+        VISIT_TIME:
+          type: string
+          description: Visit Time (DATE). HH24:MI | HH24:MI:SS
+          example: '17:15'
+        TEST_ID:
+          type: string
+          description: Lab Test Name (REF)
+          example: HDL Cholesterol
+        VALUE:
+          description: Analysis result (CHAR). The documented examples use both numbers and text.
+          oneOf:
+          - type: string
+          - type: number
+          example: 10
+        UNIT:
+          type: string
+          description: Unit (CHAR)
+          example: mg/dL
+        LOWER_LIMIT:
+          description: Reference Range Lower Limit (CHAR or NUMBER)
+          oneOf:
+          - type: string
+          - type: number
+        UPPER_LIMIT:
+          description: Reference Range Upper Limit (CHAR or NUMBER)
+          oneOf:
+          - type: string
+          - type: number
+        COMMENTS:
+          type: string
+          description: Comment (CHAR)
+        LAB_SAMPLE_ID:
+          type: string
+          description: Sample ID (CHAR)
+        RANDOM_NO:
+          type: string
+          description: Randomization No. (CHAR)
+        TEST_CD:
+          type: string
+          description: Test Code (CHAR)
+        TEST_SAMPLE_CD:
+          description: Test Sample Code (CHAR or NUMBER)
+          oneOf:
+          - type: string
+          - type: number
+        IN_EQUAL:
+          type: string
+          description: Inequality (CHAR)
+        IN_EQUAL_LEFT:
+          type: string
+          description: Inequality (CHAR)
+        IN_EQUAL_RIGHT:
+          type: string
+          description: Inequality (CHAR)
+        RECEIPT_DATE:
+          type: string
+          description: Date of receipt & ID (CHAR)
+        RANGE_FLAG:
+          type: string
+          description: Result Category (CATE)
+          example: N
+        DUMMY_01:
+          type: string
+          description: Dummy Column 1
+        DUMMY_02:
+          type: string
+        DUMMY_03:
+          type: string
+        DUMMY_04:
+          type: string
+        DUMMY_05:
+          type: string
+        DUMMY_06:
+          type: string
+        DUMMY_07:
+          type: string
+        DUMMY_08:
+          type: string
+        DUMMY_09:
+          type: string
+        DUMMY_10:
+          type: string
+    CentralLabUploadResult:
+      type: object
+      required:
+      - fileKey
+      properties:
+        fileKey:
+          type: string
+          description: 'The created job key. Use it to poll progress and validation results.
+
+            The documented example is a string (`"3850993"`).
+
+            '
+          example: '3850993'
+    CentralLabProgressResult:
+      type: object
+      description: 'Processing status of the upload job. The combination of `validityCheck` and
+
+        `crfSync` determines `message`.
+
+
+        | validityCheck | crfSync | Example message |
+
+        |---------------|---------|-----------------|
+
+        | Progress | Waiting | - |
+
+        | Success | Success | Validation and data reflection were completed successfully. |
+
+        | Success | Partially Successful | Validation passed, but only 1 out of 2 data was reflected.
+        |
+
+        | Partially Successful | Success | Only validated central Lab data was reflected successfully.
+        |
+
+        | Partially Successful | Partially Successful | Only 1 of 2 validated Central Lab data was successfully
+        reflected. |
+
+        | Partially Successful | Fail | None of validated Central Lab data can be reflected. |
+
+        | Fail | - | No validated Central Lab data. |
+
+        '
+      required:
+      - fileKey
+      - validityCheck
+      - crfSync
+      properties:
+        fileKey:
+          description: The documented examples contain both strings and numbers.
+          oneOf:
+          - type: string
+          - type: integer
+            format: int64
+          example: '3826822'
+        validityCheck:
+          type: string
+          description: Validation status.
+          enum:
+          - Progress
+          - Success
+          - Partially Successful
+          - Fail
+          example: Partially Successful
+        crfSync:
+          type: string
+          description: 'eCRF synchronization status. A failure is shown as `-`.
+
+            '
+          enum:
+          - Waiting
+          - Success
+          - Partially Successful
+          - '-'
+          example: Success
+        message:
+          type: string
+          description: Message corresponding to the status combination.
+          example: Only validated Central Lab data synced.
+    CentralLabGridResult:
+      type: object
+      description: 'Grid-shaped result shared by the detail and list endpoints.
+
+        `columns` varies with the per-study BUILDER configuration, and the keys of
+
+        `datas` correspond to the keys of `columns`.
+
+        '
+      required:
+      - columns
+      - totalCount
+      - rowCount
+      - pageNo
+      properties:
+        columns:
+          type: object
+          description: 'Mapping from column ID to display name. The composition varies with the
+
+            per-study Central Lab column configuration.
+
+            '
+          additionalProperties:
+            type: string
+          example:
+            STUDY_ID: Study ID
+            LAB_ID: Laboratory Name
+            SUBJ_ID: Screening No.
+            VISIT_ID: Visit ID
+            TEST_ID: Analysis Parameter
+            VALUE: Analysis result
+        datas:
+          type: array
+          description: 'Query result. **When there are no results this is `null`, not an empty array.**
+
+            '
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        totalCount:
+          type: integer
+          description: Total number of records.
+          example: 33
+        rowCount:
+          type: integer
+          description: Records per page.
+          example: 10
+        pageNo:
+          type: integer
+          description: Current page number.
+          example: 1
+    CentralLabErrorCode:
+      type: string
+      description: 'Error codes for the Central Lab API. This is a different set from the
+
+        `ErrorCode` used elsewhere.
+
+
+        | Code | Observed HTTP | Cause |
+
+        |------|--------------:|-------|
+
+        | `REQUIRED_PARAMETER` | 400 | Required parameter missing, unknown userId |
+
+        | `INVALID_PARAMETER` | 400 | Malformed `pageNo` or `rowCount`, Study ID format mismatch |
+
+        | `UNAUTHORIZED` | 401 | Authorization header missing, Basic authentication failed |
+
+        | `NO_PAGE_PERMISSION` | 401 / 403 | No Lab read/write permission, FileKey not found, no study
+        access permission |
+
+        | `INTERNAL_SERVER_ERROR` | 413 | Data buffer limit exceeded |
+
+
+        **`NO_PAGE_PERMISSION` appears under both 401 and 403.**
+
+        Permission and FileKey problems are documented as 401; study access problems
+
+        as 403.
+
+        '
+      enum:
+      - REQUIRED_PARAMETER
+      - INVALID_PARAMETER
+      - UNAUTHORIZED
+      - NO_PAGE_PERMISSION
+      - INTERNAL_SERVER_ERROR
+    CentralLabFailResponse:
+      type: object
+      description: Failure response format for the Central Lab API.
+      required:
+      - error
+      - message
+      - status
+      properties:
+        txId:
+          type: string
+          nullable: true
+          description: 'Present only in some error responses, and often `null`.
+
+            '
+        error:
+          type: object
+          required:
+          - errorCode
+          - errorDetails
+          properties:
+            errorCode:
+              $ref: '#/components/schemas/CentralLabErrorCode'
+            errorDetails:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+          example: Request Parameter is not valid
+        status:
+          type: string
+          enum:
+          - fail

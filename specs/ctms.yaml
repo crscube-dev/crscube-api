@@ -1302,7 +1302,7 @@ components:
       in: query
       required: false
       description: |
-        페이지당 행 수. 서버 상한(`REQUEST_MAX_SIZE`)을 넘기면 상한값으로
+        페이지당 행 수. 서버 상한을 넘기면 상한값으로
         조용히 보정됩니다(오류가 아닙니다).
       schema:
         type: integer
@@ -1554,7 +1554,7 @@ components:
       type: object
       description: |
         성공 응답 형식.
-        `status`·`responseLanguage` 는 `Response` 에서 항상 초기화되므로 늘 존재합니다.
+        `status`·`responseLanguage` 는 항상 존재합니다.
       required:
         - result
         - message
@@ -1566,8 +1566,7 @@ components:
         message:
           type: string
           description: |
-            기본값은 메시지 키 `MESSAGE.REQUEST_WAS_SUCCESS` 를 `responseLanguage` 로
-            변환한 문자열입니다.
+            기본값은 요청 성공 메시지를 `responseLanguage` 로 변환한 문자열입니다.
         status:
           type: string
           enum:
@@ -2591,7 +2590,7 @@ components:
       type: string
       description: |
         Tracker 공통 상태값. `status` 쿼리 파라미터에 목록으로 전달합니다.
-        허용 값은 내부 `TrackerStatus` enum 을 따릅니다.
+        허용 값은 담당자에게 확인하세요.
     TrackerPdType:
       type: string
       description: |

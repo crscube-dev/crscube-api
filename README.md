@@ -6,14 +6,17 @@ Public API reference for CRScube clinical trial products.
 
 | Product | Operations | Reference | OpenAPI |
 |---------|-----------:|-----------|---------|
-| CDMS API | 11 | [/cdms/](https://crscube-dev.github.io/crscube-api/cdms/) | [`specs/cdms.yaml`](specs/cdms.yaml) |
-| CTMS External API | 14 | [/ctms/](https://crscube-dev.github.io/crscube-api/ctms/) | [`specs/ctms.yaml`](specs/ctms.yaml) |
+| CDMS API | 11 | [English](https://crscube-dev.github.io/crscube-api/en/cdms/) · [한국어](https://crscube-dev.github.io/crscube-api/cdms/) | [`specs/cdms.en.yaml`](specs/cdms.en.yaml) · [`specs/cdms.yaml`](specs/cdms.yaml) |
+| CTMS External API | 14 | [English](https://crscube-dev.github.io/crscube-api/en/ctms/) · [한국어](https://crscube-dev.github.io/crscube-api/ctms/) | [`specs/ctms.en.yaml`](specs/ctms.en.yaml) · [`specs/ctms.yaml`](specs/ctms.yaml) |
+
+Every page is available in English and Korean. The `.en.yaml` documents carry
+English descriptions; the others are Korean.
 
 The specs under `specs/` are bundled single-file OpenAPI 3.0.3 documents. Import
 them directly into Swagger UI or Postman, or generate a client SDK from them.
 
 ```bash
-curl -O https://crscube-dev.github.io/crscube-api/specs/cdms.yaml
+curl -O https://crscube-dev.github.io/crscube-api/specs/cdms.en.yaml
 ```
 
 ## Access
