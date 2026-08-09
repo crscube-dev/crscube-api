@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAPI documents · CRScube API</title>
+<style>
+  :root {
+    --bg:#fff; --fg:#1b1f24; --muted:#5b6672; --line:#e3e8ee;
+    --accent:#1f6feb; --card:#fff; --pill:#f2f5f9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#262c36;
+      --accent:#58a6ff; --card:#151b23; --pill:#1b222c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; padding:3rem 1.25rem 4rem; background:var(--bg); color:var(--fg);
+    font:16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR",
+         Roboto, "Apple SD Gothic Neo", sans-serif;
+  }
+  .wrap { max-width:60rem; margin:0 auto; }
+  .langbar { display:flex; justify-content:flex-end; margin-bottom:1.5rem; }
+  .langbar .group {
+    display:inline-flex; background:var(--pill); border:1px solid var(--line);
+    border-radius:999px; padding:2px;
+  }
+  .langbar button {
+    appearance:none; border:0; background:transparent; color:var(--muted);
+    font:inherit; font-size:.85rem; padding:.3rem .95rem; border-radius:999px; cursor:pointer;
+  }
+  .langbar button[aria-pressed="true"] {
+    background:var(--card); color:var(--fg); box-shadow:0 1px 2px rgba(0,0,0,.12);
+  }
+  :root:not([data-lang="ko"]) .lang-ko { display:none; }
+  :root[data-lang="ko"] .lang-en { display:none; }
+  header { border-bottom:1px solid var(--line); padding-bottom:1.5rem; margin-bottom:1.5rem; }
+  h1 { margin:.4rem 0 .4rem; font-size:1.5rem; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0; }
+  a { color:var(--accent); }
+  .back { font-size:.85rem; text-decoration:none; }
+  table { width:100%; border-collapse:collapse; margin:0 0 1.5rem; font-size:.9rem; }
+  th, td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:.8rem; }
+  td a { text-decoration:none; }
+  td a:hover { text-decoration:underline; }
+  td .view { margin-left:.75rem; }
+  .note {
+    background:var(--pill); border:1px solid var(--line); border-radius:8px;
+    padding:.8rem 1rem; font-size:.85rem; color:var(--muted); margin:0 0 1.5rem;
+  }
+  pre {
+    background:var(--card); border:1px solid var(--line); border-radius:8px;
+    padding:1rem; overflow:auto; font-size:.8rem; line-height:1.5;
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+    max-height:34rem; margin:0;
+  }
+  .viewer-head { display:flex; align-items:baseline; gap:.75rem; margin:0 0 .6rem; }
+  .viewer-head h2 { font-size:1rem; margin:0; }
+  code {
+    background:var(--line); border-radius:4px; padding:.1rem .35rem; font-size:.85em;
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="langbar">
+    <div class="group" role="group" aria-label="Language">
+      <button type="button" data-set-lang="en" aria-pressed="true">English</button>
+      <button type="button" data-set-lang="ko" aria-pressed="false">한국어</button>
+    </div>
+  </div>
+
+  <header>
+    <a class="back" href="../">&larr; <span class="lang-en">Back</span><span class="lang-ko">돌아가기</span></a>
+    <h1>OpenAPI documents</h1>
+    <p class="sub lang-en">Bundled single-file specifications, in both languages.</p>
+    <p class="sub lang-ko">번들된 단일 파일 명세입니다. 언어별로 제공합니다.</p>
+  </header>
+
+  <p class="note">
+    <span class="lang-en"><strong>Viewing YAML in a browser.</strong>
+      GitHub Pages serves <code>.yaml</code> as <code>text/yaml</code> without a charset,
+      so the browser guesses the encoding and garbles non-ASCII text. The files themselves
+      are valid UTF-8 and every tool reads them correctly. Use <strong>View</strong> below
+      to read one here, or open the JSON, which browsers always decode as UTF-8.</span>
+    <span class="lang-ko"><strong>브라우저에서 YAML 을 볼 때.</strong>
+      GitHub Pages 는 <code>.yaml</code> 을 charset 없이 <code>text/yaml</code> 로 내보내서
+      브라우저가 인코딩을 잘못 추측합니다. 파일 자체는 정상 UTF-8 이고 모든 도구에서
+      제대로 읽힙니다. 아래 <strong>보기</strong> 를 쓰거나, 브라우저가 항상 UTF-8 로
+      해석하는 JSON 을 여세요.</span>
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th><span class="lang-en">Product</span><span class="lang-ko">제품</span></th>
+        <th><span class="lang-en">Language</span><span class="lang-ko">언어</span></th>
+        <th>JSON</th>
+        <th>YAML</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="viewer-head">
+    <h2 id="viewer-name"></h2>
+    <span class="sub" style="font-size:.8rem" id="viewer-status"></span>
+  </div>
+  <pre id="viewer"></pre>
+
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var KEY = 'crscube-api-lang';
+
+    var FILES = [
+      { product: 'CDMS API',          lang: 'en', json: 'cdms.en.json', yaml: 'cdms.en.yaml' },
+      { product: 'CDMS API',          lang: 'ko', json: 'cdms.json',    yaml: 'cdms.yaml' },
+      { product: 'CTMS External API', lang: 'en', json: 'ctms.en.json', yaml: 'ctms.en.yaml' },
+      { product: 'CTMS External API', lang: 'ko', json: 'ctms.json',    yaml: 'ctms.yaml' }
+    ];
+    var LABEL = { en: 'English', ko: '한국어' };
+
+    function bilingual(en, ko) {
+      var wrap = document.createElement('span');
+      var a = document.createElement('span'); a.className = 'lang-en'; a.textContent = en;
+      var b = document.createElement('span'); b.className = 'lang-ko'; b.textContent = ko;
+      wrap.appendChild(a); wrap.appendChild(b);
+      return wrap;
+    }
+
+    var tbody = document.getElementById('rows');
+    FILES.forEach(function (f) {
+      var tr = document.createElement('tr');
+
+      var tdProduct = document.createElement('td');
+      tdProduct.textContent = f.product;
+
+      var tdLang = document.createElement('td');
+      tdLang.textContent = LABEL[f.lang];
+
+      var tdJson = document.createElement('td');
+      var jsonLink = document.createElement('a');
+      jsonLink.href = './' + f.json;
+      jsonLink.textContent = f.json;
+      tdJson.appendChild(jsonLink);
+
+      var tdYaml = document.createElement('td');
+      var yamlLink = document.createElement('a');
+      yamlLink.href = './' + f.yaml;
+      yamlLink.textContent = f.yaml;
+      var viewLink = document.createElement('a');
+      viewLink.className = 'view';
+      viewLink.href = '?f=' + f.yaml;
+      viewLink.appendChild(bilingual('View', '보기'));
+      viewLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        show(f.yaml, true);
+      });
+      tdYaml.appendChild(yamlLink);
+      tdYaml.appendChild(viewLink);
+
+      tr.appendChild(tdProduct);
+      tr.appendChild(tdLang);
+      tr.appendChild(tdJson);
+      tr.appendChild(tdYaml);
+      tbody.appendChild(tr);
+    });
+
+    var nameEl = document.getElementById('viewer-name');
+    var statusEl = document.getElementById('viewer-status');
+    var preEl = document.getElementById('viewer');
+
+    function show(file, push) {
+      // 같은 디렉터리의 스펙 파일만 허용한다.
+      if (!/^[a-z0-9]+(\.[a-z0-9]+)*\.(yaml|json)$/i.test(file)) { return; }
+      nameEl.textContent = file;
+      statusEl.textContent = '…';
+      preEl.textContent = '';
+      if (push && window.history && history.pushState) {
+        history.pushState(null, '', '?f=' + file);
+      }
+      // 서버가 charset 을 알려 주지 않으므로 UTF-8 로 직접 디코딩한다.
+      fetch('./' + file)
+        .then(function (r) {
+          if (!r.ok) { throw new Error(r.status + ' ' + r.statusText); }
+          return r.arrayBuffer();
+        })
+        .then(function (buf) {
+          preEl.textContent = new TextDecoder('utf-8').decode(buf);
+          statusEl.textContent = Math.round(buf.byteLength / 1024) + ' KiB · UTF-8';
+        })
+        .catch(function (err) {
+          statusEl.textContent = String(err);
+        });
+    }
+
+    function apply(lang) {
+      var ko = lang === 'ko';
+      root.setAttribute('data-lang', ko ? 'ko' : 'en');
+      root.setAttribute('lang', ko ? 'ko' : 'en');
+      document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === (ko ? 'ko' : 'en')));
+      });
+    }
+
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) { /* 저장소 차단됨 */ }
+    apply(saved === 'ko' ? 'ko' : 'en');
+
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var lang = b.getAttribute('data-set-lang');
+        apply(lang);
+        try { localStorage.setItem(KEY, lang); } catch (e) { /* 저장소 차단됨 */ }
+      });
+    });
+
+    var requested = /[?&]f=([^&]+)/.exec(location.search);
+    show(requested ? decodeURIComponent(requested[1]) : (saved === 'ko' ? 'cdms.yaml' : 'cdms.en.yaml'), false);
+  })();
+</script>
+</body>
+</html>
