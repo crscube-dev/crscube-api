@@ -39,7 +39,7 @@ info:
     Sync 계열에서 프로젝트를 찾지 못하면 **API Key 검증보다 먼저 404** 가
     발생합니다.
 
-    ## 응답 봉투
+    ## 응답 형식
 
     성공·실패 모두 `status`·`responseLanguage` 가 항상 붙습니다.
 
@@ -1553,7 +1553,7 @@ components:
     SuccessResponse:
       type: object
       description: |
-        성공 응답 봉투.
+        성공 응답 형식.
         `status`·`responseLanguage` 는 `Response` 에서 항상 초기화되므로 늘 존재합니다.
       required:
         - result
@@ -1577,7 +1577,7 @@ components:
     FailResponse:
       type: object
       description: |
-        실패 응답 봉투.
+        실패 응답 형식.
         `error` 맵에는 항상 `errorCode`·`debugMessage` 가 들어가고, 예외가
         `fieldName` 을 지정하면 같은 맵에 병합됩니다.
       required:
@@ -1616,7 +1616,7 @@ components:
     PaginatedResult:
       type: object
       description: |
-        목록 조회 결과. 응답 봉투의 `result` 에 그대로 담깁니다.
+        목록 조회 결과. 응답 형식의 `result` 에 그대로 담깁니다.
       required:
         - contents
         - totalPages
