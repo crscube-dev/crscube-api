@@ -1,0 +1,3767 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CTMS External API",
+    "version": "1.1.0",
+    "description": "OpenAPI specification for the CRScube CTMS External API.\n\n## Scope\n\nThe 14 endpoints whose paths begin with `/external/api/v1.1`.\n\n| Tag | Count | Contents |\n|-----|------:|----------|\n| `sync` | 5 | Site, Subject, SAE, PD/PV and SDV synchronization (PUT) |\n| `tracker` | 4 | SAE, PD/PV, Risk and Issue Tracker lookups |\n| `project` | 3 | Study lookup, sponsor project list, team list |\n| `mvr` | 2 | MVR list, MVR type codes |\n\n## Authentication\n\nThe sync endpoints (5 PUTs) require the `X-API-Key` header.\nKeys are issued per project; contact your CRScube representative for the value.\n\n## How to read the status codes\n\n**This API returns 400 even for unclassified errors.** In practice 500 does not\noccur.\n\n| Situation | Actual response |\n|-----------|-----------------|\n| Validation failure, body parse failure, any other error | **400** |\n| X-API-Key missing, mismatched or not configured | 401 (`INVALID_REQUEST`) |\n| No permission | 403 (`FORBIDDEN`) |\n| Project, study or code not found | 404 (`RESOURCE_NOT_FOUND`) |\n\nAll three causes of 401 share the same `errorCode`, `INVALID_REQUEST`.\nTo distinguish them you must read `error.debugMessage`.\n\nOn the sync endpoints, a project that cannot be found produces **404 before the\nAPI key is even checked**.\n\n## Response format\n\nBoth success and failure always carry `status` and `responseLanguage`.\n\n```\nsuccess  { result, message, status: \"success\", responseLanguage }\nfailure  { error: { errorCode, debugMessage, ...additional }, message,\n           status: \"fail\", responseLanguage }\n```\n\nThe 5 sync endpoints (PUT) return an empty object in `result`. They do not\nreport how many records were processed.\n\n## Common to list endpoints\n\n- `page` starts at 1. A value below 1 is corrected to 1.\n- If `size` exceeds the server limit it is **silently** capped, without an error.\n- The response `result` echoes the applied search conditions in\n  `filteredElements`.\n- Every row carries `deleted` and `no`.\n\n---\n\nCopyright (c) CRScube Co., Ltd. All Rights Reserved\n",
+    "contact": {
+      "name": "CRScube",
+      "url": "https://crscube.io"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://github.com/crscube-dev/crscube-api#license"
+    }
+  },
+  "servers": [
+    {
+      "url": "{scheme}://{host}",
+      "description": "CTMS API host. Contact your CRScube representative for the address of each region and environment.\n",
+      "variables": {
+        "scheme": {
+          "default": "https",
+          "enum": [
+            "https",
+            "http"
+          ]
+        },
+        "host": {
+          "default": "ctms.example.com"
+        }
+      }
+    }
+  ],
+  "security": [],
+  "tags": [
+    {
+      "name": "sync",
+      "description": "External system to CTMS data synchronization (PUT). **`X-API-Key` required.**\nEach endpoint accepts at most 100 records per request, and the audit reason is\nrecorded as a system synchronization.\n"
+    },
+    {
+      "name": "tracker",
+      "description": "SAE, PD/PV, Risk and Issue Tracker lookups.\n"
+    },
+    {
+      "name": "project",
+      "description": "Project and team lookups."
+    },
+    {
+      "name": "mvr",
+      "description": "MVR (Monitoring Visit Report) lookups."
+    }
+  ],
+  "paths": {
+    "/external/api/v1.1/projects/{projectId}/sites": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        },
+        {
+          "$ref": "#/components/parameters/ApiKey"
+        }
+      ],
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "saveSites",
+        "summary": "Synchronize sites (teams)",
+        "description": "Creates or updates the site (team) list of a project, up to 100 records per\ncall.\n\nA `studyTeamKey` greater than 0 marks the team as already synchronized.\nThe audit reason is recorded as a system synchronization.\n",
+        "security": [
+          {
+            "externalApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalSiteSaveRequest"
+              },
+              "example": {
+                "sites": [
+                  {
+                    "studyTeamKey": 1001,
+                    "teamTempId": "TMP-1Z",
+                    "teamName": "Seoul Clinical Center",
+                    "teamEngName": "Seoul Clinical Center",
+                    "nationCode": "KR",
+                    "timeZone": "Asia/Seoul",
+                    "piName": "홍길동",
+                    "piEmail": "gildong@example.com",
+                    "description": ""
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/_unit"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/sites/{siteId}/subjects": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        },
+        {
+          "$ref": "#/components/parameters/SiteId"
+        },
+        {
+          "$ref": "#/components/parameters/ApiKey"
+        }
+      ],
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "saveSubjects",
+        "summary": "Synchronize subjects",
+        "description": "Creates or updates the subject list of a site, up to 100 records per call.\n\nThis is the only one of the five sync requests that validates each item\nindividually (including whether `screeningNo` is blank).\n",
+        "security": [
+          {
+            "externalApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalSubjectSaveRequest"
+              },
+              "example": {
+                "subjects": [
+                  {
+                    "studyTeamKey": 1001,
+                    "studySubjectKey": 90112,
+                    "screeningNo": "S-1Z-001",
+                    "age": 42,
+                    "gender": "FEMALE",
+                    "screeningDate": "2026-07-15",
+                    "randomNo": "R-001",
+                    "randomDate": "2026-07-20",
+                    "lastVisitDate": "2026-08-01",
+                    "status": "ONGOING",
+                    "deleted": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/_unit"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/sites/{siteId}/subjects/{studySubjectKey}/saes": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        },
+        {
+          "$ref": "#/components/parameters/SiteId"
+        },
+        {
+          "$ref": "#/components/parameters/StudySubjectKey"
+        },
+        {
+          "$ref": "#/components/parameters/ApiKey"
+        }
+      ],
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "saveSaes",
+        "summary": "Synchronize SAEs",
+        "description": "Creates or updates the SAE (serious adverse event) list of a subject,\nup to 100 records per call.\n\nDate fields accept partial or unknown date notations as strings.\nA blank string is treated as null.\nThe `report` date, `comment` and `followUpCompleted` are forced to null by the\nserver.\n",
+        "security": [
+          {
+            "externalApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalSaeSaveRequest"
+              },
+              "example": {
+                "saes": [
+                  {
+                    "sequenceNo": "1",
+                    "studySubjectKey": 90112,
+                    "aeTerm": "Headache",
+                    "startDate": "2026-07-01",
+                    "severity": "MILD",
+                    "seriousness": "SERIOUS",
+                    "outcome": "RECOVERED",
+                    "deleted": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/_unit"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/sites/{siteId}/subjects/{studySubjectKey}/pdpvs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        },
+        {
+          "$ref": "#/components/parameters/SiteId"
+        },
+        {
+          "$ref": "#/components/parameters/StudySubjectKey"
+        },
+        {
+          "$ref": "#/components/parameters/ApiKey"
+        }
+      ],
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "savePdpvs",
+        "summary": "Synchronize PD/PVs",
+        "description": "Creates or updates the PD (protocol deviation) / PV list of a subject,\nup to 100 records per call.\n\nThe server fixes the type to `SUBJECT` and treats `customValues` as an empty\nlist. A date string that fails to parse becomes null rather than raising an\nerror.\n",
+        "security": [
+          {
+            "externalApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalPdpvSaveRequest"
+              },
+              "example": {
+                "pdpvs": [
+                  {
+                    "queryKey": 5001,
+                    "studyTeamKey": 1001,
+                    "studySubjectKey": 90112,
+                    "studyInstanceKey": 7001,
+                    "pdCode": "PD-01",
+                    "pdDetails": "Visit window deviation",
+                    "pdStatus": "OPEN",
+                    "identifiedDate": "2026-07-10",
+                    "visitLabel": "V1",
+                    "deleted": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/_unit"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/sites/{siteId}/subjects/{studySubjectKey}/sdvs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        },
+        {
+          "$ref": "#/components/parameters/SiteId"
+        },
+        {
+          "$ref": "#/components/parameters/StudySubjectKey"
+        },
+        {
+          "$ref": "#/components/parameters/ApiKey"
+        }
+      ],
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "saveSdvs",
+        "summary": "Synchronize SDVs",
+        "description": "Creates or updates the SDV (source data verification) progress of a subject,\nup to 100 records per call.\n\nUnlike the other sync requests, `deleted` is the only required field on an item.\n",
+        "security": [
+          {
+            "externalApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalSdvSaveRequest"
+              },
+              "example": {
+                "sdvs": [
+                  {
+                    "visitLabel": "V1",
+                    "scheduleLabel": "Screening",
+                    "crfLabel": "Demographics",
+                    "status": "COMPLETED",
+                    "firstSdvDate": "2026-07-20",
+                    "lastSdvDate": "2026-07-25",
+                    "deleted": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/_unit"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/trackers/saes": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "tracker"
+        ],
+        "operationId": "paginateTrackerSaes",
+        "summary": "List SAE Tracker records",
+        "description": "Returns the SAE Tracker of a project, page by page.\n\nThe default sort is team name, then screening number, then report type, then\nsequence, then follow-up number, all ascending.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          },
+          {
+            "$ref": "#/components/parameters/ShowDeleted"
+          },
+          {
+            "$ref": "#/components/parameters/teamKeys"
+          },
+          {
+            "name": "screeningNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "randomNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "sequenceNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "aeTerm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "followUpStatus",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "relatedness",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "actionTaken",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "expectedness",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "seriousness",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "detail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "reportType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Numeric range search"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "received",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "irb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "regulatory",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "report",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "inputTime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "$ref": "#/components/parameters/followUpCompleted"
+          },
+          {
+            "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/trackers/pdpvs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "tracker"
+        ],
+        "operationId": "paginateTrackerPdpvs",
+        "summary": "List PD/PV Tracker records",
+        "description": "Returns the PD/PV Tracker of a project, page by page.\n\n`pdStatus` is a filter that accepts both code values and free-text entries.\n\nThe default sort is team ID ascending, then screening number ascending, then\ninput time descending, then key descending.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          },
+          {
+            "$ref": "#/components/parameters/ShowDeleted"
+          },
+          {
+            "$ref": "#/components/parameters/teamKeys"
+          },
+          {
+            "name": "sequenceNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Numeric range search"
+          },
+          {
+            "name": "screeningNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "randomNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "visit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "pdCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "pdDetails",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "capa",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "comment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "pdStatus",
+            "in": "query",
+            "required": false,
+            "description": "PD status filter. Accepts both code values and free-text entries.\n",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pdpvTypes",
+            "in": "query",
+            "required": false,
+            "description": "PD/PV type filter. Multiple values allowed.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/TrackerPdType"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "reportedDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "completeDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "irbSubmissionDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "inputTime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "studyContinued",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdpvResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/trackers/risks": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "tracker"
+        ],
+        "operationId": "paginateTrackerRisks",
+        "summary": "List Risk Tracker records",
+        "description": "Returns the Risk Tracker of a project, page by page.\nThe default sort is key descending.\n\nUnlike the other trackers, there is no team-level filter (`teamKeys`).\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          },
+          {
+            "$ref": "#/components/parameters/ShowDeleted"
+          },
+          {
+            "name": "riskNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Numeric range search"
+          },
+          {
+            "name": "riskLevel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Numeric range search"
+          },
+          {
+            "name": "actionPlan",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "actionOwner",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "riskOwner",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "identifiedDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "dueDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "reviewDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "inputTime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "$ref": "#/components/parameters/riskCategoryKeys"
+          },
+          {
+            "$ref": "#/components/parameters/riskResponseStrategyKeys"
+          },
+          {
+            "$ref": "#/components/parameters/actionPlanStatusKeys"
+          },
+          {
+            "$ref": "#/components/parameters/riskStatusKeys"
+          },
+          {
+            "$ref": "#/components/parameters/riskAcceptanceKeys"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/trackers/issues": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "tracker"
+        ],
+        "operationId": "paginateTrackerIssues",
+        "summary": "List Issue Tracker records",
+        "description": "Returns the Issue Tracker of a project, page by page.\n\n`issueType` and `assigneeRole` are filters that accept both code values and\nfree-text entries.\n\nThe default sort is issue number descending, then key descending.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          },
+          {
+            "$ref": "#/components/parameters/ShowDeleted"
+          },
+          {
+            "$ref": "#/components/parameters/teamKeys"
+          },
+          {
+            "name": "issueNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Numeric range search"
+          },
+          {
+            "name": "screeningNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "randomNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "title",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "details",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "actions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "assigneeName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "comment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "other",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Partial-match search"
+          },
+          {
+            "name": "issueType",
+            "in": "query",
+            "required": false,
+            "description": "Issue type filter (code plus free-text pair).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assigneeRole",
+            "in": "query",
+            "required": false,
+            "description": "Assignee role filter (code plus free-text pair).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categories",
+            "in": "query",
+            "required": false,
+            "description": "Issue category filter (`TrackerIssueCategory`). Multiple values allowed.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "occurrenceDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "identifiedDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "resolvedDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "name": "inputTime",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Date range search"
+          },
+          {
+            "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/studies/{studyId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/StudyId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "project"
+        ],
+        "operationId": "retrieveProjectByStudyId",
+        "summary": "Look up a project by Study ID",
+        "description": "Looks up a CTMS project by the Study ID of the source system.\n\nWhen there is no match the response is **404** (`RESOURCE_NOT_FOUND`), not\n`result: null`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SourceSystem"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "result"
+                      ],
+                      "properties": {
+                        "result": {
+                          "$ref": "#/components/schemas/ProjectExternalRetrieveResponse"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "result": {
+                    "projectId": "SAMPLE-PROJECT",
+                    "status": "ONGOING",
+                    "closureStatus": "OPEN",
+                    "studyId": "SAMPLE_STUDY",
+                    "sourceSystem": "MEDNET",
+                    "deleted": false,
+                    "no": 0
+                  },
+                  "message": "Request was success",
+                  "status": "success",
+                  "responseLanguage": "EN"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/sponsors/{sponsorId}/projects": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SponsorId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "project"
+        ],
+        "operationId": "paginateProjectsBySponsor",
+        "summary": "List a sponsor's projects",
+        "description": "Returns the projects belonging to a sponsor, page by page.\n\n**Closed (CLOSED) projects are not returned.**\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          },
+          {
+            "$ref": "#/components/parameters/ShowDeleted"
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "description": "Partial-match search on project ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "protocolTitle",
+            "in": "query",
+            "required": false,
+            "description": "Partial-match search on protocol name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Project status filter. Multiple values allowed.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ProjectStatus"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Sort order. Contact your CRScube representative for the available values.\n",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "result"
+                      ],
+                      "properties": {
+                        "result": {
+                          "$ref": "#/components/schemas/PaginatedResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/teams": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "project"
+        ],
+        "operationId": "paginateProjectTeams",
+        "summary": "List a project's teams (sites)",
+        "description": "Returns the team (site) list of a project, page by page.\nThe default sort is `TEAM_ID_ASC`.\n\nUnlike the other list endpoints, `result.additional` is always empty.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          },
+          {
+            "$ref": "#/components/parameters/ShowDeleted"
+          },
+          {
+            "name": "teamId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamTempId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Sort order. Defaults to `TEAM_ID_ASC`.\n",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "result"
+                      ],
+                      "properties": {
+                        "result": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/PaginatedResult"
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "contents": {
+                                  "type": "array",
+                                  "items": {
+                                    "$ref": "#/components/schemas/ExternalProjectTeamPaginatedRow"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/mvrs": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "mvr"
+        ],
+        "operationId": "paginateMvrs",
+        "summary": "List MVRs",
+        "description": "Returns the MVRs (Monitoring Visit Reports) of a project, page by page.\n\nThe default sort is team ID, then report number, then schedule key, all\nascending. Overdue determination follows the `overdueCondition` default,\n`LAST_SIGN`.\n\n`now` defaults to the server's current date and is used as the reference date\nfor the overdue calculation.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Size"
+          },
+          {
+            "$ref": "#/components/parameters/ShowDeleted"
+          },
+          {
+            "name": "teamKeys",
+            "in": "query",
+            "required": false,
+            "description": "Team key filter.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "realTeam",
+            "in": "query",
+            "required": false,
+            "description": "Whether to return only real teams.",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "overdueCondition",
+            "in": "query",
+            "required": false,
+            "description": "Overdue determination basis.",
+            "schema": {
+              "$ref": "#/components/schemas/MvrOverdueCondition"
+            }
+          },
+          {
+            "name": "overdue",
+            "in": "query",
+            "required": false,
+            "description": "Overdue filter.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "approvalStatusValues",
+            "in": "query",
+            "required": false,
+            "description": "Approval status filter.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "reportNo",
+            "in": "query",
+            "required": false,
+            "description": "Report number range search.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "visitDate",
+            "in": "query",
+            "required": false,
+            "description": "Visit date range search.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inputTime",
+            "in": "query",
+            "required": false,
+            "description": "Input date range search.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "now",
+            "in": "query",
+            "required": false,
+            "description": "Reference date for the overdue calculation. Defaults to the server's current date.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Sort order. The allowed values are —\n`TEAM_ID_ASC`/`DESC`, `REPORT_NO_ASC`/`DESC`,\n`PLANNED_DATE_ASC`/`DESC`, `CL_DATE_ASC`/`DESC`,\n`FU_DATE_ASC`/`DESC`, `VISIT_DATE_ASC`/`DESC`,\n`VISIT_COUNT_ASC`/`DESC`.\n",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "TEAM_ID_ASC",
+                  "TEAM_ID_DESC",
+                  "REPORT_NO_ASC",
+                  "REPORT_NO_DESC",
+                  "PLANNED_DATE_ASC",
+                  "PLANNED_DATE_DESC",
+                  "CL_DATE_ASC",
+                  "CL_DATE_DESC",
+                  "FU_DATE_ASC",
+                  "FU_DATE_DESC",
+                  "VISIT_DATE_ASC",
+                  "VISIT_DATE_DESC",
+                  "VISIT_COUNT_ASC",
+                  "VISIT_COUNT_DESC"
+                ]
+              }
+            },
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "result"
+                      ],
+                      "properties": {
+                        "result": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/PaginatedResult"
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "contents": {
+                                  "type": "array",
+                                  "items": {
+                                    "$ref": "#/components/schemas/ExternalMvrPaginatedRow"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/external/api/v1.1/projects/{projectId}/mvr-types": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProjectId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "mvr"
+        ],
+        "operationId": "retrieveMvrTypes",
+        "summary": "List MVR type codes",
+        "description": "Returns the MVR type codes used by a project.\nThey correspond to the `mvrType` values in the `/mvrs` response.\n\nA project that cannot be found returns 404 (`RESOURCE_NOT_FOUND`).\n\nAlthough this is a list endpoint it is not paginated, so `result` is an array.\n",
+        "responses": {
+          "200": {
+            "description": "Lookup succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "result"
+                      ],
+                      "properties": {
+                        "result": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/MvrTypeCode"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "externalApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for the sync endpoints (PUT) only.\nKeys are issued per project; contact your CRScube representative for the value.\n"
+      }
+    },
+    "parameters": {
+      "ProjectId": {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "description": "Project ID. On the sync endpoints (PUT) it also identifies the project whose\nAPI key is registered.\n",
+        "schema": {
+          "type": "string"
+        },
+        "example": "SAMPLE-PROJECT"
+      },
+      "SiteId": {
+        "name": "siteId",
+        "in": "path",
+        "required": true,
+        "description": "Site(Team) ID.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "1Z"
+      },
+      "StudySubjectKey": {
+        "name": "studySubjectKey",
+        "in": "path",
+        "required": true,
+        "description": "Subject key in the source system (EDC).",
+        "schema": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "example": 90112
+      },
+      "SponsorId": {
+        "name": "sponsorId",
+        "in": "path",
+        "required": true,
+        "description": "Sponsor ID.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "CRSCUBE"
+      },
+      "StudyId": {
+        "name": "studyId",
+        "in": "path",
+        "required": true,
+        "description": "Study ID in the source system.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "SAMPLE_STUDY"
+      },
+      "ApiKey": {
+        "name": "X-API-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key for the sync endpoints (PUT) only.\n\nCompared against the API key issued to the project.\n\n- Header missing or blank: 401 (`INVALID_REQUEST`, \"Missing X-API-Key header\")\n- No API key configured for the project: 401 (\"API Key not configured for this study\")\n- Value mismatch: 401 (\"Invalid API Key\")\n",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "Page number. Starts at 1; a value below 1 is corrected to 1.",
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "Size": {
+        "name": "size",
+        "in": "query",
+        "required": false,
+        "description": "Rows per page. A value above the server limit is silently capped at the limit\n(this is not an error).\n",
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "default": 10
+        }
+      },
+      "ShowDeleted": {
+        "name": "showDeleted",
+        "in": "query",
+        "required": false,
+        "description": "Whether to include deleted rows.",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "SourceSystem": {
+        "name": "sourceSystem",
+        "in": "query",
+        "required": true,
+        "description": "Source system. This is an enum binding, so an undefined value returns 400.\n",
+        "schema": {
+          "$ref": "#/components/schemas/SourceSystem"
+        }
+      },
+      "teamKeys": {
+        "name": "teamKeys",
+        "in": "query",
+        "required": false,
+        "description": "Team key filter. Leave it empty to query every team you can access.\n",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "followUpCompleted": {
+        "name": "followUpCompleted",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "status": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "description": "A list of `TrackerStatus` values.",
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/TrackerStatus"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "sort": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "description": "Sort order. Contact your CRScube representative for the available values.\n",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "riskCategoryKeys": {
+        "name": "riskCategoryKeys",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "riskResponseStrategyKeys": {
+        "name": "riskResponseStrategyKeys",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "actionPlanStatusKeys": {
+        "name": "actionPlanStatusKeys",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "riskStatusKeys": {
+        "name": "riskStatusKeys",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "style": "form",
+        "explode": true
+      },
+      "riskAcceptanceKeys": {
+        "name": "riskAcceptanceKeys",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "style": "form",
+        "explode": true
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request.\n\n**This API returns 400 even for unclassified errors.**\nAs a result, 500 almost never occurs.\n\n| errorCode | Cause |\n|-----------|-------|\n| `REQUIRED_PARAMETER` | Required value missing (`teamTempId`, `teamName`, `screeningNo`) |\n| `INVALID_PARAMETER` | Body parse failure, enum binding failure, type mismatch |\n| `INVALID_REQUEST` | Validation failure such as more than 100 records |\n| `UNEXPECTED` | Unclassified exception |\n\nThe field that failed validation may be carried in `error.fieldName`.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FailResponse"
+            },
+            "examples": {
+              "requiredParameter": {
+                "summary": "Required field missing",
+                "value": {
+                  "error": {
+                    "errorCode": "REQUIRED_PARAMETER",
+                    "debugMessage": "EXCEPTION.REQUIRED_PARAMETER",
+                    "fieldName": "teamName"
+                  },
+                  "message": "필수 항목이 누락되었습니다.",
+                  "status": "fail",
+                  "responseLanguage": "KO"
+                }
+              },
+              "listSizeExceeded": {
+                "summary": "More than 100 records",
+                "value": {
+                  "error": {
+                    "errorCode": "INVALID_REQUEST",
+                    "debugMessage": "Request list size must not exceed 100"
+                  },
+                  "message": "Request list size must not exceed 100",
+                  "status": "fail",
+                  "responseLanguage": "EN"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "API key verification failed. **This occurs only on the sync endpoints (PUT).**\n\nAll three cases share the `errorCode` `INVALID_REQUEST`, so `debugMessage` is\nthe only way to tell them apart.\n\n| debugMessage | Cause |\n|--------------|-------|\n| `Missing X-API-Key header` | Header missing or blank |\n| `API Key not configured for this study` | No API key configured for the project |\n| `Invalid API Key` | Value mismatch |\n\nValues are compared in a way that is safe against timing attacks.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FailResponse"
+            },
+            "example": {
+              "error": {
+                "errorCode": "INVALID_REQUEST",
+                "debugMessage": "Invalid API Key"
+              },
+              "message": "잘못된 요청입니다.",
+              "status": "fail",
+              "responseLanguage": "KO"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "No permission.\n\nThis can occur when a lookup endpoint fails its permission check.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FailResponse"
+            },
+            "example": {
+              "error": {
+                "errorCode": "FORBIDDEN",
+                "debugMessage": "No privilege"
+              },
+              "message": "권한이 없습니다.",
+              "status": "fail",
+              "responseLanguage": "KO"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The target resource could not be found.\n\n| Endpoint | Cause |\n|----------|-------|\n| All sync endpoints (PUT) | The given projectId is not registered |\n| `GET /studies/{studyId}` | Study id or study not found |\n| `GET /projects/{projectId}/mvr-types` | Project id not found |\n\nOn the sync endpoints, 404 is raised **before the API key is verified**. In\nother words, calling with a wrong projectId returns 404 even if the API key is\nalso wrong.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FailResponse"
+            },
+            "example": {
+              "error": {
+                "errorCode": "RESOURCE_NOT_FOUND",
+                "debugMessage": "Project not found: SAMPLE-PROJECT"
+              },
+              "message": "대상을 찾을 수 없습니다.",
+              "status": "fail",
+              "responseLanguage": "KO"
+            }
+          }
+        }
+      },
+      "_unit": {
+        "description": "Synchronization succeeded. `result` is an empty object and carries no record counts.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "description": "An empty object."
+                    }
+                  }
+                }
+              ]
+            },
+            "example": {
+              "result": {},
+              "message": "Request was success",
+              "status": "success",
+              "responseLanguage": "EN"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "SuccessResponse": {
+        "type": "object",
+        "description": "Success response format.\n`status` and `responseLanguage` are always present.\n",
+        "required": [
+          "result",
+          "message",
+          "status",
+          "responseLanguage"
+        ],
+        "properties": {
+          "result": {
+            "description": "Endpoint-specific result. It is an empty object when the return type is `Unit`."
+          },
+          "message": {
+            "type": "string",
+            "description": "Defaults to the request-succeeded message rendered in `responseLanguage`.\n"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "responseLanguage": {
+            "$ref": "#/components/schemas/SupportLang"
+          }
+        }
+      },
+      "FailResponse": {
+        "type": "object",
+        "description": "Failure response format.\nThe `error` map always contains `errorCode` and `debugMessage`, and when the\nexception specifies a `fieldName` it is merged into the same map.\n",
+        "required": [
+          "error",
+          "message",
+          "status",
+          "responseLanguage"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "errorCode",
+              "debugMessage"
+            ],
+            "properties": {
+              "errorCode": {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              "debugMessage": {
+                "type": "string",
+                "description": "Raw message for developers. It is not localized."
+              },
+              "fieldName": {
+                "type": "string",
+                "description": "Name of the field that failed validation. Added only when a field can be identified.\n"
+              }
+            },
+            "additionalProperties": true
+          },
+          "message": {
+            "type": "string",
+            "description": "User-facing message rendered according to `responseLanguage`.\nThe wording may change, so do not branch on it.\n"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "fail"
+            ]
+          },
+          "responseLanguage": {
+            "$ref": "#/components/schemas/SupportLang"
+          }
+        }
+      },
+      "PaginatedResult": {
+        "type": "object",
+        "description": "List result. Carried verbatim in `result` of the response format.\n",
+        "required": [
+          "contents",
+          "totalPages",
+          "totalCount",
+          "isFirst",
+          "isLast",
+          "page",
+          "size",
+          "isEmpty",
+          "isFiltered",
+          "filteredElements",
+          "additional"
+        ],
+        "properties": {
+          "contents": {
+            "type": "array",
+            "description": "The rows returned. The row schema differs per endpoint.",
+            "items": {
+              "type": "object"
+            }
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "isFirst": {
+            "type": "boolean"
+          },
+          "isLast": {
+            "type": "boolean"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Starts at 1."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isEmpty": {
+            "type": "boolean"
+          },
+          "isFiltered": {
+            "type": "boolean",
+            "description": "Whether any filter condition was applied."
+          },
+          "filteredElements": {
+            "type": "object",
+            "description": "Echoes back the search conditions that were applied.\nThe set of fields differs per endpoint.\n",
+            "additionalProperties": true
+          },
+          "additional": {
+            "type": "object",
+            "description": "Endpoint-specific supplementary information.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PaginatedRow": {
+        "type": "object",
+        "description": "The two fields common to every list row.\n",
+        "required": [
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Row number."
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "description": "Error code. The values observed on this API are listed below.\n\n| errorCode | HTTP | Where it occurs |\n|-----------|-----:|-----------------|\n| `INVALID_REQUEST` | 401 | X-API-Key missing or mismatched, API key not configured |\n| `RESOURCE_NOT_FOUND` | 404 | Project, study or code lookup failed |\n| `REQUIRED_PARAMETER` | 400 | Required value missing |\n| `INVALID_PARAMETER` | 400 | Malformed parameter |\n| `FORBIDDEN` | 403 | No permission |\n| `UNEXPECTED` | 400 | Unclassified exception |\n\nValues not listed here may also appear. Branch on `error.errorCode` rather than\non the HTTP status.\n",
+        "example": "RESOURCE_NOT_FOUND"
+      },
+      "SupportLang": {
+        "type": "string",
+        "description": "Response message language.",
+        "enum": [
+          "EN",
+          "KO",
+          "JA",
+          "ZH"
+        ],
+        "example": "EN"
+      },
+      "SourceSystem": {
+        "type": "string",
+        "description": "Source system.",
+        "enum": [
+          "MEDNET",
+          "FLORENCE",
+          "CDMS_JP",
+          "CDMS_EU",
+          "CDMS_KO"
+        ],
+        "example": "MEDNET"
+      },
+      "ProjectStatus": {
+        "type": "string",
+        "enum": [
+          "NOT_YET_RECRUITING",
+          "ONGOING",
+          "COMPLETED"
+        ]
+      },
+      "ProjectClosureStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSED"
+        ]
+      },
+      "ProjectExternalRetrieveResponse": {
+        "type": "object",
+        "description": "Project summary looked up by Study ID. Like a list row, it also carries\n`deleted` and `no`.\n\nWhen there is no match the response is 404 (`RESOURCE_NOT_FOUND`) —\n`result` is not returned as null.\n",
+        "required": [
+          "projectId",
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectStatus"
+              }
+            ],
+            "nullable": true
+          },
+          "closureStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectClosureStatus"
+              }
+            ],
+            "nullable": true
+          },
+          "studyId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceSystem": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SourceSystem"
+              }
+            ],
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ProjectTeamDate": {
+        "type": "object",
+        "description": "Project team dates. Every field is optional and holds a date string.\n",
+        "properties": {
+          "confidentialDiscAgreeDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "firstPatientInScreenDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "firstPatientInRandomDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "preStudySiteVisitDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "contractDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "studyContractedEndDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastPatientInDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastPatientOutDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "closeOutVisitDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbApprovalDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "siteInitiationVisitDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "studyIrbEndDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbInterimReportDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbClosureReportDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbFinalReportDate": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "NumberOfMvr": {
+        "type": "object",
+        "description": "Planned MVR counts by type.",
+        "properties": {
+          "sqvr": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "sivr": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "imvr": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "covr": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "otvr": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        }
+      },
+      "ExternalProjectTeamPaginatedRow": {
+        "type": "object",
+        "description": "A project team (site) list row.",
+        "required": [
+          "teamTempId",
+          "teamCode",
+          "teamName",
+          "projectTeamDate",
+          "expectedNumberOfMvr",
+          "description",
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamTempId": {
+            "type": "string"
+          },
+          "teamCode": {
+            "type": "string"
+          },
+          "teamName": {
+            "type": "string"
+          },
+          "teamEngName": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "nationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "timeZone": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "piName": {
+            "type": "string",
+            "nullable": true
+          },
+          "piEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "crcName": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectTeamDate": {
+            "$ref": "#/components/schemas/ProjectTeamDate"
+          },
+          "irbInterimReportDateSynced": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "irbClosureReportDateSynced": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "irbFinalReportDateSynced": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "irbClosureReportDueDetail": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbDocumentSubmittedDetail": {
+            "type": "string",
+            "nullable": true
+          },
+          "planned": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "screened": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "randomized": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "expectedNumberOfMvr": {
+            "$ref": "#/components/schemas/NumberOfMvr"
+          },
+          "description": {
+            "type": "string"
+          },
+          "other": {
+            "type": "string",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ExternalSiteSaveRequest": {
+        "type": "object",
+        "required": [
+          "sites"
+        ],
+        "properties": {
+          "sites": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Up to 100 records. More than that returns 400.",
+            "items": {
+              "$ref": "#/components/schemas/ExternalProjectTeamCreateRequest"
+            }
+          }
+        }
+      },
+      "ExternalProjectTeamCreateRequest": {
+        "type": "object",
+        "description": "Site (team) create or update request.\n\nThe server fills `teamCode` from `teamTempId`, and `syncedTeam` is derived from\nwhether `studyTeamKey > 0`. Neither is a request field.\n",
+        "required": [
+          "teamTempId",
+          "teamName",
+          "description"
+        ],
+        "properties": {
+          "studyTeamKey": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Team key in the source system. A value greater than 0 marks the team as synchronized."
+          },
+          "investigatorSiteKey": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Treated as 0 when omitted."
+          },
+          "teamId": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamTempId": {
+            "type": "string",
+            "description": "Required. A blank value returns 400 (`REQUIRED_PARAMETER`)."
+          },
+          "teamName": {
+            "type": "string",
+            "description": "Required. A blank value returns 400 (`REQUIRED_PARAMETER`)."
+          },
+          "teamEngName": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "nationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "timeZone": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "piName": {
+            "type": "string",
+            "nullable": true
+          },
+          "piEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "crcName": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectTeamDate": {
+            "$ref": "#/components/schemas/ProjectTeamDate"
+          },
+          "irbClosureReportDueDetail": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbDocumentSubmittedDetail": {
+            "type": "string",
+            "nullable": true
+          },
+          "planned": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "expectedNumberOfMvr": {
+            "$ref": "#/components/schemas/NumberOfMvr"
+          },
+          "description": {
+            "type": "string",
+            "description": "Required."
+          },
+          "other": {
+            "type": "string",
+            "nullable": true
+          },
+          "customValues": {
+            "type": "array",
+            "description": "Project custom field values.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "reason": {
+            "type": "string",
+            "description": "Audit reason. When omitted it is recorded as a system synchronization."
+          }
+        }
+      },
+      "ExternalSubjectSaveRequest": {
+        "type": "object",
+        "required": [
+          "subjects"
+        ],
+        "properties": {
+          "subjects": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "Up to 100 records. Each item is validated individually.",
+            "items": {
+              "$ref": "#/components/schemas/ExternalSubjectSaveItem"
+            }
+          }
+        }
+      },
+      "ExternalSubjectSaveItem": {
+        "type": "object",
+        "required": [
+          "studyTeamKey",
+          "studySubjectKey",
+          "screeningNo",
+          "deleted"
+        ],
+        "properties": {
+          "studyTeamKey": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studySubjectKey": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "screeningNo": {
+            "type": "string",
+            "description": "Required. A blank value returns 400 (`REQUIRED_PARAMETER`)."
+          },
+          "age": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "screeningDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "randomNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "randomDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "lastVisitDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Gender": {
+        "type": "string",
+        "nullable": true,
+        "enum": [
+          "MALE",
+          "FEMALE"
+        ]
+      },
+      "ExternalSaeSaveRequest": {
+        "type": "object",
+        "required": [
+          "saes"
+        ],
+        "properties": {
+          "saes": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ExternalSaeSaveItem"
+            }
+          }
+        }
+      },
+      "ExternalSaeSaveItem": {
+        "type": "object",
+        "description": "An SAE synchronization item.\n\nDate fields accept partial or unknown date notations as strings.\nA blank string is treated as null.\nThe `report` date, `comment` and `followUpCompleted` are forced to null by the\nserver.\n",
+        "required": [
+          "sequenceNo",
+          "studySubjectKey",
+          "deleted"
+        ],
+        "properties": {
+          "sequenceNo": {
+            "type": "string"
+          },
+          "studySubjectKey": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studyScheduleKey": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "studyItemKey": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "studyRowNp": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "studyRowNo": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "aeTerm": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "nullable": true,
+            "description": "Date string. Partial or unknown notations are allowed."
+          },
+          "outcome": {
+            "type": "string",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "nullable": true,
+            "description": "Date string. Partial or unknown notations are allowed."
+          },
+          "severity": {
+            "type": "string",
+            "nullable": true
+          },
+          "relatedness": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionTaken": {
+            "type": "string",
+            "nullable": true
+          },
+          "expectedness": {
+            "type": "string",
+            "nullable": true
+          },
+          "seriousness": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "received": {
+            "type": "string",
+            "nullable": true,
+            "description": "Date string. Partial or unknown notations are allowed."
+          },
+          "irb": {
+            "type": "string",
+            "nullable": true,
+            "description": "IRB report date. Partial or unknown notations are allowed."
+          },
+          "regulation": {
+            "type": "string",
+            "nullable": true,
+            "description": "Regulatory authority report date. Partial or unknown notations are allowed."
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "customValues": {
+            "type": "array",
+            "description": "Custom field values.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "ExternalPdpvSaveRequest": {
+        "type": "object",
+        "required": [
+          "pdpvs"
+        ],
+        "properties": {
+          "pdpvs": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ExternalPdpvSaveItem"
+            }
+          }
+        }
+      },
+      "ExternalPdpvSaveItem": {
+        "type": "object",
+        "description": "A PD/PV synchronization item. The server fixes the type (`type`) to `SUBJECT`\nand treats `customValues` as an empty list.\n\nA date string that fails to parse becomes null (it does not raise an error).\n",
+        "required": [
+          "queryKey",
+          "studyTeamKey",
+          "studySubjectKey",
+          "studyInstanceKey",
+          "pdCode",
+          "pdDetails",
+          "deleted"
+        ],
+        "properties": {
+          "queryKey": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studyTeamKey": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studySubjectKey": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studyScheduleKey": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "studyItemKey": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "studyRowNp": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "studyRowNo": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "studyInstanceKey": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pdCode": {
+            "type": "string"
+          },
+          "pdDetails": {
+            "type": "string"
+          },
+          "pdStatus": {
+            "type": "string",
+            "nullable": true,
+            "description": "A code value or free-text entry."
+          },
+          "capa": {
+            "type": "string",
+            "nullable": true
+          },
+          "identifiedDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "completionDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitLabel": {
+            "type": "string",
+            "nullable": true,
+            "description": "Mapped to the `visit` field when stored."
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ExternalSdvSaveRequest": {
+        "type": "object",
+        "required": [
+          "sdvs"
+        ],
+        "properties": {
+          "sdvs": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/ExternalSdvSaveItem"
+            }
+          }
+        }
+      },
+      "ExternalSdvSaveItem": {
+        "type": "object",
+        "description": "An SDV synchronization item. Unlike the other sync requests, `deleted` is the\nonly required field; everything else defaults to null.\n",
+        "required": [
+          "deleted"
+        ],
+        "properties": {
+          "visitLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduleLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "crfLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExternalSdvStatus"
+          },
+          "firstSdvDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "lastSdvDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ExternalSdvStatus": {
+        "type": "string",
+        "nullable": true,
+        "enum": [
+          "INCOMPLETE",
+          "COMPLETED"
+        ]
+      },
+      "TrackerSaePaginatedRow": {
+        "type": "object",
+        "description": "An SAE Tracker row.",
+        "additionalProperties": true,
+        "required": [
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "teamName": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamKey": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "reportType": {
+            "type": "string",
+            "nullable": true
+          },
+          "screeningNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "randomNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "sequenceNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "aeTerm": {
+            "type": "string",
+            "nullable": true
+          },
+          "followUpStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "followUpCompleted": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "outcome": {
+            "type": "string",
+            "nullable": true
+          },
+          "severity": {
+            "type": "string",
+            "nullable": true
+          },
+          "relatedness": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionTaken": {
+            "type": "string",
+            "nullable": true
+          },
+          "expectedness": {
+            "type": "string",
+            "nullable": true
+          },
+          "seriousness": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "received": {
+            "type": "string",
+            "nullable": true
+          },
+          "irb": {
+            "type": "string",
+            "nullable": true
+          },
+          "regulatory": {
+            "type": "string",
+            "nullable": true
+          },
+          "report": {
+            "type": "string",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TrackerPdpvPaginatedRow": {
+        "type": "object",
+        "description": "A PD/PV Tracker row.",
+        "additionalProperties": true,
+        "required": [
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "sequenceNo": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true,
+            "description": "TrackerPdType (SUBJECT and so on)."
+          },
+          "teamName": {
+            "type": "string",
+            "nullable": true
+          },
+          "screeningNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "randomNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "visit": {
+            "type": "string",
+            "nullable": true
+          },
+          "pdCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "pdDetails": {
+            "type": "string",
+            "nullable": true
+          },
+          "capa": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "reportedDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "completeDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "studyContinued": {
+            "type": "string",
+            "nullable": true
+          },
+          "irbSubmissionDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TrackerRiskPaginatedRow": {
+        "type": "object",
+        "description": "A Risk Tracker row.",
+        "additionalProperties": true,
+        "required": [
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "trackerRiskKey": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "sequenceNo": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "identifiedDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "riskCause": {
+            "type": "string",
+            "nullable": true
+          },
+          "probability": {
+            "type": "string",
+            "nullable": true
+          },
+          "impact": {
+            "type": "string",
+            "nullable": true
+          },
+          "detectability": {
+            "type": "string",
+            "nullable": true
+          },
+          "riskLevel": {
+            "type": "string",
+            "nullable": true
+          },
+          "responseStrategy": {
+            "type": "string",
+            "nullable": true
+          },
+          "riskOwner": {
+            "type": "string",
+            "nullable": true
+          },
+          "riskStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "riskAcceptance": {
+            "type": "string",
+            "nullable": true
+          },
+          "controlActions": {
+            "type": "string",
+            "nullable": true
+          },
+          "monitoringActions": {
+            "type": "string",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TrackerIssuePaginatedRow": {
+        "type": "object",
+        "description": "An Issue Tracker row.",
+        "additionalProperties": true,
+        "required": [
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "sequenceNo": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "teamKey": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "subjectKey": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "teamName": {
+            "type": "string",
+            "nullable": true
+          },
+          "screeningNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "randomNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true,
+            "description": "TrackerIssueCategory."
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "actions": {
+            "type": "string",
+            "nullable": true
+          },
+          "assigneeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "occurrenceDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "identifiedDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "resolvedDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "other": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "description": "TrackerStatus."
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "TrackerStatus": {
+        "type": "string",
+        "description": "Status values shared across the trackers. Pass them as a list in the `status`\nquery parameter.\nContact your CRScube representative for the allowed values.\n"
+      },
+      "TrackerPdType": {
+        "type": "string",
+        "description": "PD/PV type. The server fixes it to `SUBJECT` when storing through sync (PUT),\nand you can filter on it with `pdpvTypes` when querying.\n"
+      },
+      "ExternalMvrPaginatedRow": {
+        "type": "object",
+        "description": "An MVR (Monitoring Visit Report) list row.\n\nWhen `teamId` is present, `teamName` is returned combined as\n`[teamId] teamName`.\n",
+        "required": [
+          "teamName",
+          "mvrType",
+          "reportNo",
+          "approvalStatus",
+          "approvalStatusLabel",
+          "deleted",
+          "no"
+        ],
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamTempId": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamName": {
+            "type": "string",
+            "description": "When `teamId` is present it is combined as `[teamId] team name`.",
+            "example": "[1Z] Seoul Clinical Center"
+          },
+          "teamEngName": {
+            "type": "string",
+            "nullable": true
+          },
+          "mvrType": {
+            "type": "string",
+            "description": "MVR type code. This is a code value returned by `/mvr-types`."
+          },
+          "reportNo": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "plannedDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "visitDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "approvalLevel": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "approvalStatus": {
+            "type": "string",
+            "description": "Approval status code (`statusLabel`)."
+          },
+          "approvalStatusLabel": {
+            "type": "string",
+            "description": "Approval status string for display."
+          },
+          "approvalInitialSignatures": {
+            "type": "array",
+            "nullable": true,
+            "description": "Initial approval signatures.",
+            "items": {
+              "$ref": "#/components/schemas/ExternalApprovalSignature"
+            }
+          },
+          "approvalLastSignatures": {
+            "type": "array",
+            "nullable": true,
+            "description": "Final approval signatures.",
+            "items": {
+              "$ref": "#/components/schemas/ExternalApprovalSignature"
+            }
+          },
+          "cras": {
+            "type": "array",
+            "nullable": true,
+            "description": "Assigned CRAs.",
+            "items": {
+              "$ref": "#/components/schemas/ExternalCraInfo"
+            }
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "no": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ExternalApprovalSignature": {
+        "type": "object",
+        "description": "An approval signature. `signedByDisplay` is a derived field, populated as\n`\"name (email)\"` only when both `userName` and `userEmail` are present.\n",
+        "required": [
+          "approvalLevel",
+          "approvalDate"
+        ],
+        "properties": {
+          "approvalLevel": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "approvalLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "approvalDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "overdue": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Days overdue."
+          },
+          "userName": {
+            "type": "string",
+            "nullable": true
+          },
+          "userEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "signedByDisplay": {
+            "type": "string",
+            "nullable": true,
+            "description": "Populated only when both `userName` and `userEmail` are present.",
+            "example": "홍길동 (gildong@example.com)"
+          }
+        }
+      },
+      "ExternalCraInfo": {
+        "type": "object",
+        "required": [
+          "userEmail",
+          "userName"
+        ],
+        "properties": {
+          "userEmail": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          }
+        }
+      },
+      "MvrTypeCode": {
+        "type": "object",
+        "description": "MVR type code. A code and label pair.\n",
+        "additionalProperties": true
+      },
+      "MvrOverdueCondition": {
+        "type": "string",
+        "description": "Overdue determination basis. Defaults to `LAST_SIGN`.\n",
+        "default": "LAST_SIGN"
+      },
+      "SaeResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SuccessResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PaginatedResult"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "contents": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/TrackerSaePaginatedRow"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "PdpvResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SuccessResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PaginatedResult"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "contents": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/TrackerPdpvPaginatedRow"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RiskResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SuccessResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PaginatedResult"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "contents": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/TrackerRiskPaginatedRow"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "IssueResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SuccessResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PaginatedResult"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "contents": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/TrackerIssuePaginatedRow"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
