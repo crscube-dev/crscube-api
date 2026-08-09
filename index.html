@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,6 +12,7 @@
     --line: #e3e8ee;
     --accent: #1f6feb;
     --card: #ffffff;
+    --pill: #f2f5f9;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -21,6 +22,7 @@
       --line: #262c36;
       --accent: #58a6ff;
       --card: #151b23;
+      --pill: #1b222c;
     }
   }
   * { box-sizing: border-box; }
@@ -33,40 +35,60 @@
           Roboto, "Apple SD Gothic Neo", sans-serif;
   }
   .wrap { max-width: 52rem; margin: 0 auto; }
+
+  /* 언어 전환. 기본은 영어이며, 스크립트가 없어도 CSS 가 영어를 보여 준다. */
+  .langbar { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+  .langbar .group {
+    display: inline-flex;
+    background: var(--pill);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px;
+  }
+  .langbar button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: .85rem;
+    padding: .3rem .95rem;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .langbar button[aria-pressed="true"] {
+    background: var(--card);
+    color: var(--fg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+  }
+
+  :root:not([data-lang="ko"]) .lang-ko { display: none; }
+  :root[data-lang="ko"] .lang-en { display: none; }
+
   header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; margin-bottom: 2rem; }
   h1 { margin: 0 0 .4rem; font-size: 1.75rem; letter-spacing: -.01em; }
   .sub { color: var(--muted); margin: 0; }
   h2 { font-size: 1.05rem; margin: 2.25rem 0 .85rem; letter-spacing: .01em; }
   .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
-  .card {
+  a.card {
+    display: block;
     border: 1px solid var(--line);
     background: var(--card);
     border-radius: 10px;
     padding: 1.1rem 1.2rem;
-    transition: border-color .12s ease;
-  }
-  .card:hover { border-color: var(--accent); }
-  .card .name { font-weight: 600; margin-bottom: .3rem; }
-  .card .desc { color: var(--muted); font-size: .875rem; }
-  .card .meta { color: var(--muted); font-size: .8rem; margin-top: .5rem; }
-  .langs { display: flex; gap: .5rem; margin-top: .85rem; }
-  .langs a {
-    flex: 1;
-    text-align: center;
-    padding: .45rem .6rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    color: var(--accent);
     text-decoration: none;
-    font-size: .85rem;
+    color: inherit;
+    transition: border-color .12s ease, transform .12s ease;
   }
-  .langs a:hover { border-color: var(--accent); background: var(--line); }
+  a.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  a.card .name { font-weight: 600; margin-bottom: .3rem; }
+  a.card .desc { color: var(--muted); font-size: .875rem; }
+  a.card .meta { color: var(--muted); font-size: .8rem; margin-top: .6rem; }
   ul.links { list-style: none; padding: 0; margin: 0; }
   ul.links li { padding: .4rem 0; border-bottom: 1px solid var(--line); }
   ul.links li:last-child { border-bottom: 0; }
   ul.links a { color: var(--accent); text-decoration: none; }
   ul.links a:hover { text-decoration: underline; }
-  ul.links .note { color: var(--muted); font-size: .85rem; }
   code {
     background: var(--line);
     border-radius: 4px;
@@ -84,50 +106,85 @@
 <body>
 <div class="wrap">
 
-  <header>
-    <h1>CRScube API</h1>
-    <p class="sub">제품별 OpenAPI 레퍼런스 &middot; OpenAPI reference by product</p>
-  </header>
-
-  <h2>API 레퍼런스 &middot; API reference</h2>
-  <div class="grid">
-    <div class="card">
-      <div class="name">CDMS API</div>
-      <div class="desc">API 게이트웨이를 통해 외부에 노출되는 CDMS 연동 API</div>
-      <div class="meta">11 operations</div>
-      <div class="langs">
-        <a href="./cdms/">한국어</a>
-        <a href="./en/cdms/">English</a>
-      </div>
-    </div>
-    <div class="card">
-      <div class="name">CTMS External API</div>
-      <div class="desc">CTMS 의 <code>/external/api/v1.1</code> 엔드포인트</div>
-      <div class="meta">14 operations</div>
-      <div class="langs">
-        <a href="./ctms/">한국어</a>
-        <a href="./en/ctms/">English</a>
-      </div>
+  <div class="langbar">
+    <div class="group" role="group" aria-label="Language">
+      <button type="button" data-set-lang="en" aria-pressed="true">English</button>
+      <button type="button" data-set-lang="ko" aria-pressed="false">한국어</button>
     </div>
   </div>
 
-  <h2>OpenAPI 원본 &middot; OpenAPI documents</h2>
+  <header>
+    <h1>CRScube API</h1>
+    <p class="sub lang-en">OpenAPI reference by product</p>
+    <p class="sub lang-ko">제품별 OpenAPI 레퍼런스</p>
+  </header>
+
+  <h2><span class="lang-en">API reference</span><span class="lang-ko">API 레퍼런스</span></h2>
+  <div class="grid">
+    <a class="card" href="./en/cdms/" data-href-en="./en/cdms/" data-href-ko="./cdms/">
+      <div class="name">CDMS API</div>
+      <div class="desc lang-en">CDMS integration APIs exposed externally through the API gateway</div>
+      <div class="desc lang-ko">API 게이트웨이를 통해 외부에 노출되는 CDMS 연동 API</div>
+      <div class="meta">11 operations</div>
+    </a>
+    <a class="card" href="./en/ctms/" data-href-en="./en/ctms/" data-href-ko="./ctms/">
+      <div class="name">CTMS External API</div>
+      <div class="desc lang-en">The <code>/external/api/v1.1</code> endpoints of CTMS</div>
+      <div class="desc lang-ko">CTMS 의 <code>/external/api/v1.1</code> 엔드포인트</div>
+      <div class="meta">14 operations</div>
+    </a>
+  </div>
+
+  <h2><span class="lang-en">OpenAPI documents</span><span class="lang-ko">OpenAPI 원본</span></h2>
   <p class="sub" style="font-size:.9rem;margin:0 0 .75rem">
-    번들된 단일 파일입니다. Swagger UI&middot;Postman 임포트나 SDK 생성에 바로 쓸 수 있습니다.<br>
-    Bundled single-file documents, ready for Swagger UI, Postman, or SDK generation.
+    <span class="lang-en">Bundled single-file documents, ready for Swagger UI, Postman, or SDK generation.</span>
+    <span class="lang-ko">번들된 단일 파일입니다. Swagger UI&middot;Postman 임포트나 SDK 생성에 바로 쓸 수 있습니다.</span>
   </p>
   <ul class="links">
-    <li><a href="./specs/cdms.yaml">specs/cdms.yaml</a> <span class="note">— 한국어</span></li>
-    <li><a href="./specs/cdms.en.yaml">specs/cdms.en.yaml</a> <span class="note">— English</span></li>
-    <li><a href="./specs/ctms.yaml">specs/ctms.yaml</a> <span class="note">— 한국어</span></li>
-    <li><a href="./specs/ctms.en.yaml">specs/ctms.en.yaml</a> <span class="note">— English</span></li>
+    <li class="lang-en"><a href="./specs/cdms.en.yaml">specs/cdms.en.yaml</a></li>
+    <li class="lang-en"><a href="./specs/ctms.en.yaml">specs/ctms.en.yaml</a></li>
+    <li class="lang-ko"><a href="./specs/cdms.yaml">specs/cdms.yaml</a></li>
+    <li class="lang-ko"><a href="./specs/ctms.yaml">specs/ctms.yaml</a></li>
   </ul>
 
   <footer>
-    Copyright © CRScube Co., Ltd. All Rights Reserved<br>
-    문의: <a href="mailto:api-support@crscube.com" style="color:var(--accent)">api-support@crscube.com</a>
+    Copyright &copy; CRScube Co., Ltd. All Rights Reserved<br>
+    <span class="lang-en">Contact</span><span class="lang-ko">문의</span>:
+    <a href="mailto:api-support@crscube.com" style="color:var(--accent)">api-support@crscube.com</a>
   </footer>
 
 </div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var KEY = 'crscube-api-lang';
+
+    function apply(lang) {
+      var ko = lang === 'ko';
+      root.setAttribute('data-lang', ko ? 'ko' : 'en');
+      root.setAttribute('lang', ko ? 'ko' : 'en');
+      document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === (ko ? 'ko' : 'en')));
+      });
+      document.querySelectorAll('[data-href-en]').forEach(function (a) {
+        a.setAttribute('href', a.getAttribute(ko ? 'data-href-ko' : 'data-href-en'));
+      });
+    }
+
+    // 저장된 선택이 있으면 따르고, 없으면 영어.
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) { /* 저장소 차단됨 */ }
+    apply(saved === 'ko' ? 'ko' : 'en');
+
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var lang = b.getAttribute('data-set-lang');
+        apply(lang);
+        try { localStorage.setItem(KEY, lang); } catch (e) { /* 저장소 차단됨 */ }
+      });
+    });
+  })();
+</script>
 </body>
 </html>
