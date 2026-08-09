@@ -84,6 +84,8 @@
   a.card .name { font-weight: 600; margin-bottom: .3rem; }
   a.card .desc { color: var(--muted); font-size: .875rem; }
   a.card .meta { color: var(--muted); font-size: .8rem; margin-top: .6rem; }
+  a.card.wide { margin-bottom: 1rem; }
+  a.card .arrow { color: var(--accent); }
   ul.links { list-style: none; padding: 0; margin: 0; }
   ul.links li { padding: .4rem 0; border-bottom: 1px solid var(--line); }
   ul.links li:last-child { border-bottom: 0; }
@@ -137,9 +139,21 @@
   </div>
 
   <h2><span class="lang-en">OpenAPI documents</span><span class="lang-ko">OpenAPI 원본</span></h2>
-  <p class="sub" style="font-size:.9rem;margin:0 0 .75rem">
-    <span class="lang-en">Bundled single-file documents, ready for Swagger UI, Postman, or SDK generation.</span>
-    <span class="lang-ko">번들된 단일 파일입니다. Swagger UI&middot;Postman 임포트나 SDK 생성에 바로 쓸 수 있습니다.</span>
+  <a class="card wide" href="./specs/">
+    <div class="name">
+      <span class="lang-en">Browse all documents <span class="arrow">&rarr;</span></span>
+      <span class="lang-ko">전체 문서 보기 <span class="arrow">&rarr;</span></span>
+    </div>
+    <div class="desc lang-en">JSON and YAML for both products in English and Korean, with a
+      built-in viewer that renders them with the correct encoding.</div>
+    <div class="desc lang-ko">두 제품의 JSON&middot;YAML 을 언어별로 모아 두었습니다.
+      인코딩을 바로잡아 보여 주는 뷰어가 함께 있습니다.</div>
+  </a>
+  <p class="sub" style="font-size:.9rem;margin:0 0 .6rem">
+    <span class="lang-en">Or go straight to a file &mdash; bundled and ready for Swagger UI,
+      Postman, or SDK generation.</span>
+    <span class="lang-ko">바로 파일로 갈 수도 있습니다. 번들된 단일 파일이라 Swagger UI&middot;Postman
+      임포트나 SDK 생성에 그대로 씁니다.</span>
   </p>
   <ul class="links">
     <li class="lang-en"><a href="./specs/cdms.en.json">specs/cdms.en.json</a>
@@ -151,10 +165,6 @@
     <li class="lang-ko"><a href="./specs/ctms.json">specs/ctms.json</a>
       <span class="note">&middot; <a href="./specs/?f=ctms.yaml">YAML</a></span></li>
   </ul>
-  <p class="sub" style="font-size:.85rem;margin:.75rem 0 0">
-    <span class="lang-en">See <a href="./specs/">all documents</a>.</span>
-    <span class="lang-ko"><a href="./specs/">전체 목록</a> 을 보세요.</span>
-  </p>
 
   <footer>
     Copyright &copy; CRScube Co., Ltd. All Rights Reserved<br>
