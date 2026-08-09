@@ -11,9 +11,9 @@ info:
 
     | 영역 | 오퍼레이션 | 태그 |
     |------|-----------:|------|
-    | CRF 데이터 업로드 | 1 | `inbound.gateway` |
-    | Dataset 추출 | 4 | `inbound.dataset` |
-    | 시험대상자 등록 | 1 | `inbound.subject` |
+    | CRF 데이터 업로드 | 1 | `gateway` |
+    | Dataset 추출 | 4 | `dataset` |
+    | 시험대상자 등록 | 1 | `subject` |
     | Central Lab | 5 | `central-lab` |
 
     ## 상태 코드를 읽는 법
@@ -85,13 +85,13 @@ servers:
         default: cdms-gateway.example.com
 security: []
 tags:
-  - name: inbound.gateway
+  - name: gateway
     description: |
       외부 EDC 벤더의 CRF 데이터 업로드.
-  - name: inbound.dataset
+  - name: dataset
     description: |
       SDTM 데이터셋 추출 요청·상태 조회·다운로드.
-  - name: inbound.subject
+  - name: subject
     description: |
       외부 시스템의 시험대상자 등록.
   - name: central-lab
@@ -109,7 +109,7 @@ paths:
       - $ref: '#/components/parameters/CacheControl'
     post:
       tags:
-        - inbound.gateway
+        - gateway
       operationId: uploadCrf
       summary: CRF 데이터 업로드
       description: |
@@ -197,7 +197,7 @@ paths:
       - $ref: '#/components/parameters/CacheControl'
     get:
       tags:
-        - inbound.dataset
+        - dataset
       operationId: retrieveDatasetDomains
       summary: 추출 가능한 도메인 목록 조회
       description: |
@@ -262,7 +262,7 @@ paths:
       - $ref: '#/components/parameters/CacheControl'
     post:
       tags:
-        - inbound.dataset
+        - dataset
       operationId: createDatasetExtractJob
       summary: 데이터셋 추출 작업 생성
       description: |
@@ -335,7 +335,7 @@ paths:
       - $ref: '#/components/parameters/CacheControl'
     get:
       tags:
-        - inbound.dataset
+        - dataset
       operationId: retrieveDatasetJobStatus
       summary: 추출 작업 상태 조회
       description: |
@@ -400,7 +400,7 @@ paths:
       - $ref: '#/components/parameters/CacheControl'
     get:
       tags:
-        - inbound.dataset
+        - dataset
       operationId: downloadDatasetJobResult
       summary: 추출 결과 파일 다운로드
       description: |
@@ -481,7 +481,7 @@ paths:
       - $ref: '#/components/parameters/CacheControl'
     post:
       tags:
-        - inbound.subject
+        - subject
       operationId: createExternalSubject
       summary: 시험대상자 등록 (외부 시스템용)
       description: |
