@@ -20,11 +20,15 @@ Swagger UI or Postman, or generate a client SDK from them.
 curl -O https://crscube-dev.github.io/crscube-api/specs/cdms.en.json
 ```
 
-**Reading them in a browser:** open the JSON. GitHub Pages serves `.yaml` as
-`text/yaml` without a charset, so a browser may guess the wrong encoding and
-garble non-ASCII text. The YAML bytes themselves are valid UTF-8 and work
-correctly with every tool — the problem is limited to viewing raw YAML in a
-browser.
+**Reading them in a browser.** GitHub Pages serves `.yaml` as `text/yaml`
+without a charset, so a browser guesses the encoding and garbles non-ASCII
+text. The bytes are valid UTF-8 and work correctly with every tool — only raw
+viewing in a browser is affected.
+
+Open the JSON, or use the viewer at
+[**/specs/**](https://crscube-dev.github.io/crscube-api/specs/), which decodes
+the file as UTF-8 explicitly. A direct link works too, for example
+[`/specs/?f=cdms.yaml`](https://crscube-dev.github.io/crscube-api/specs/?f=cdms.yaml).
 
 ## Access
 
