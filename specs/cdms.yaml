@@ -11,7 +11,7 @@ info:
 
     | 영역 | 오퍼레이션 | 태그 |
     |------|-----------:|------|
-    | CRF 데이터 업로드 | 1 | `gateway` |
+    | CRF 데이터 업로드 | 1 | `crf` |
     | Dataset 추출 | 4 | `dataset` |
     | 시험대상자 등록 | 1 | `subject` |
     | Central Lab | 5 | `central-lab` |
@@ -85,7 +85,7 @@ servers:
         default: cdms-gateway.example.com
 security: []
 tags:
-  - name: gateway
+  - name: crf
     description: |
       외부 EDC 벤더의 CRF 데이터 업로드.
   - name: dataset
@@ -109,7 +109,7 @@ paths:
       - $ref: '#/components/parameters/CacheControl'
     post:
       tags:
-        - gateway
+        - crf
       operationId: uploadCrf
       summary: CRF 데이터 업로드
       description: |
