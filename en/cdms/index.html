@@ -2986,6 +2986,125 @@ Contact your CRScube representative for the address of each region
       Redoc.hydrate(__redoc_state, container);
 
       </script>
+
+<style>
+  /* 인증 절을 오퍼레이션과 같은 2단으로 만든다. */
+  .crscube-split { display: flex; align-items: flex-start; }
+  .crscube-split > .crscube-left { flex: 1 1 60%; min-width: 0; }
+  .crscube-split > .crscube-right {
+    flex: 0 0 40%;
+    align-self: stretch;
+    box-sizing: border-box;
+  }
+  /* 옮겨온 코드 블록이 패널 폭을 넘지 않게 한다. */
+  .crscube-samples pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  @media (max-width: 1024px) {
+    .crscube-split { display: block; }
+    .crscube-split > .crscube-right { width: 100%; }
+  }
+</style>
+
+<script>
+(function () {
+  var SECTION_ID = "section/Authentication";
+  var TITLE = "Samples";
+  var MAX_TRIES = 60;
+
+  function findRightPanelSource() {
+    // 오퍼레이션 섹션은 [MiddlePanel, RightPanel] 두 자식으로 이뤄진다.
+    // 우측 패널은 "Request samples" 같은 h3 을 갖는다. 코드는 pre 가 아니라
+    // code 로 렌더되므로 pre 로 찾으면 안 된다.
+    var ops = document.querySelectorAll('div[data-section-id^="operation/"]');
+    for (var i = 0; i < ops.length; i++) {
+      var kids = [];
+      for (var j = 0; j < ops[i].children.length; j++) {
+        if (ops[i].children[j].tagName === 'DIV') kids.push(ops[i].children[j]);
+      }
+      if (kids.length >= 2 && kids[1].querySelector('h3')) return kids[1];
+    }
+    return null;
+  }
+
+  function apply() {
+    var sec = document.querySelector('div[data-section-id="' + SECTION_ID + '"]');
+    if (!sec) return false;
+
+    var md = sec.querySelector('.redoc-markdown');
+    if (!md) return false;
+
+    var pres = md.querySelectorAll('pre');
+    if (!pres.length) return false;
+
+    var source = findRightPanelSource();
+    if (!source) return false;
+
+    var content = md.parentNode;
+    if (!content || content.parentNode !== sec) return false;
+
+    // 이전에 만든 패널이 남아 있으면 걷어낸다(React 재렌더 대비).
+    var stale = sec.querySelector('.crscube-samples');
+    if (stale) stale.parentNode.removeChild(stale);
+
+    var row = content.parentNode.classList &&
+              content.parentNode.classList.contains('crscube-split')
+            ? content.parentNode : null;
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'crscube-split';
+      sec.insertBefore(row, content);
+      row.appendChild(content);
+      content.classList.add('crscube-left');
+    }
+
+    var right = document.createElement('div');
+    right.className = source.className + ' crscube-right crscube-samples';
+
+    var srcHeading = source.querySelector('h3');
+    var heading = document.createElement('h3');
+    if (srcHeading) heading.className = srcHeading.className;
+    heading.textContent = TITLE;
+    right.appendChild(heading);
+
+    for (var i = 0; i < pres.length; i++) right.appendChild(pres[i]);
+    row.appendChild(right);
+    return true;
+  }
+
+  function start() {
+    var tries = 0;
+    var timer = setInterval(function () {
+      if (apply() || ++tries >= MAX_TRIES) {
+        clearInterval(timer);
+        watch();
+      }
+    }, 100);
+  }
+
+  // React 가 설명 영역을 다시 그리면 코드가 본문으로 되돌아온다.
+  // 그때 다시 옮긴다. 되돌아오지 않으면 아무 일도 하지 않는다.
+  function watch() {
+    var sec = document.querySelector('div[data-section-id="' + SECTION_ID + '"]');
+    if (!sec || !window.MutationObserver) return;
+    var pending = false;
+    new MutationObserver(function () {
+      if (pending) return;
+      var md = sec.querySelector('.redoc-markdown');
+      if (!md || !md.querySelector('pre')) return;
+      pending = true;
+      setTimeout(function () { pending = false; apply(); }, 50);
+    }).observe(sec, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
+</script>
 </body>
 
 </html>
