@@ -263,13 +263,28 @@ paths:
                           description: Returns an empty array when there are no results.
                           items:
                             $ref: '#/components/schemas/Domain'
-              example:
-                status: success
-                result:
-                  domains:
-                  - domainId: DM
-                    domainLabel: Demographics
-                    source: CRF
+              examples:
+                list:
+                  summary: Lookup succeeded
+                  value:
+                    status: success
+                    result:
+                      domains:
+                      - domainId: EN
+                        domainLabel: Enrollment
+                        source: CRF
+                      - domainId: SV
+                        domainLabel: Visit
+                        source: CRF
+                      - domainId: RN
+                        domainLabel: Randomization
+                        source: IWRS
+                empty:
+                  summary: No results
+                  value:
+                    status: success
+                    result:
+                      domains: []
         '400':
           $ref: '#/components/responses/DatasetGetBadRequest'
         '401':
@@ -325,6 +340,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ExtractDatasetRequest'
+            example:
+              txId: 550e8400-e29b-41d4-a716-446655440000
+              userId: user@example.com
+              roleId: PI
+              domainList:
+              - EN
+              - SV
+              codeType: code
+              fileType: csv
       responses:
         '201':
           description: Job created.
@@ -348,9 +372,9 @@ paths:
                           description: Job key used for status lookup and download.
               example:
                 status: success
-                txId: 8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b
+                txId: 550e8400-e29b-41d4-a716-446655440000
                 result:
-                  jobKey: 10231
+                  jobKey: 1234567
         '202':
           $ref: '#/components/responses/DatasetJobInProgress'
         '400':
@@ -567,6 +591,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ExternalSubjectCreateRequest'
+            example:
+              txId: 550e8400-e29b-41d4-a716-446655440000
+              userId: user@example.com
+              roleId: PI
+              icDate: '2022-01-01'
+              scrCode: ST-001
       responses:
         '201':
           description: Registration succeeded.
@@ -583,9 +613,9 @@ paths:
                       $ref: '#/components/schemas/ExternalSubjectCreateResponse'
               example:
                 status: success
-                txId: 2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410
+                txId: 550e8400-e29b-41d4-a716-446655440000
                 result:
-                  subjectId: '0001'
+                  subjectId: ST-001
         '400':
           $ref: '#/components/responses/SubjectBadRequest'
         '401':
@@ -650,10 +680,10 @@ paths:
             schema:
               $ref: '#/components/schemas/CentralLabUploadRequest'
             example:
-              userId: thhyun
+              userId: user@example.com
               txId: 01edf0ad-2e96-1f0a-9e66-745197c08f9a
               data:
-              - STUDY_ID: CUBEDEMO-2017
+              - STUDY_ID: SAMPLE_STUDY
                 LAB_ID: CRSCUBE
                 SUBJ_ID: S-1Z-001
                 SUBJ_INIT: AAA
@@ -745,13 +775,34 @@ paths:
                     type: string
                     enum:
                     - success
-              example:
-                result:
-                  validityCheck: Partially Successful
-                  crfSync: Success
-                  fileKey: '3826822'
-                  message: Only validated Central Lab data synced.
-                status: success
+              examples:
+                syncSucceeded:
+                  summary: Sync succeeded
+                  value:
+                    result:
+                      fileKey: '3826822'
+                      validityCheck: Partially Successful
+                      crfSync: Success
+                      message: Only validated Central Lab data synced.
+                    status: success
+                syncFailed:
+                  summary: Nothing to reflect
+                  value:
+                    result:
+                      fileKey: 1346146
+                      validityCheck: Partially Successful
+                      crfSync: Fail
+                      message: Nothing to sync in validated Central Lab data.
+                    status: success
+                validityFailed:
+                  summary: Validation failed
+                  value:
+                    result:
+                      fileKey: 1346147
+                      validityCheck: Fail
+                      crfSync: '-'
+                      message: No validated Central Lab data.
+                    status: success
         '400':
           $ref: '#/components/responses/CentralLabBadRequest'
         '401':
@@ -812,6 +863,55 @@ paths:
                     type: string
                     enum:
                     - success
+              examples:
+                found:
+                  summary: Lookup succeeded (failed rows)
+                  value:
+                    result:
+                      columns:
+                        STUDY_ID: Study ID
+                        LAB_ID: Laboratory Name
+                        SUBJ_ID: Screening No.
+                        GENDER: Sex
+                        VISIT_ID: Visit ID
+                        VISIT_DATE: Sampling Date
+                        TEST_ID: Analysis Parameter
+                        VALUE: Analysis result
+                        RANGE_FLAG: Out of Range Flag
+                        COMMENTS: Remark/Comment
+                        LAB_SAMPLE_ID: Accession No.
+                      datas:
+                      - STUDY_ID: SAMPLE_STUDY
+                        LAB_ID: LAB
+                        SUBJ_ID: S06-30
+                        GENDER: M
+                        VISIT_ID: '3'
+                        VISIT_DATE: '20220713'
+                        TEST_ID: Total Cholesterol
+                        VALUE: '202'
+                        RANGE_FLAG: A
+                        COMMENTS: ''
+                        LAB_SAMPLE_ID: 'null'
+                        MESSAGE: This subject doesn't exist. [Screening No.]
+                        INPUT_TIME: 2022-12-30 09:20:09 (UTC+9)
+                        RESULT: F
+                      totalCount: 33
+                      rowCount: 2
+                      pageNo: 1
+                    status: success
+                empty:
+                  summary: No results (datas is null)
+                  value:
+                    result:
+                      columns:
+                        STUDY_ID: Study ID
+                        LAB_ID: Laboratory Name
+                        SUBJ_ID: Screening No.
+                      datas: null
+                      totalCount: 0
+                      rowCount: 2
+                      pageNo: 1
+                    status: success
         '400':
           $ref: '#/components/responses/CentralLabBadRequest'
         '401':
@@ -867,6 +967,44 @@ paths:
                     type: string
                     enum:
                     - success
+              examples:
+                found:
+                  summary: Lookup succeeded
+                  value:
+                    result:
+                      columns:
+                        STUDY_ID: SAMPLE_STUDY
+                        LAB_ID: Laboratory Name
+                        SUBJ_ID: Screening No.
+                        VISIT_ID: Visit ID
+                        VISIT_DATE: Visit Date
+                        VISIT_TIME: Visit Time
+                        TEST_ID: Lab Test Name
+                        VALUE: Analysis result
+                      datas:
+                      - SUBJ_ID: SAA001
+                        VISIT_ID: V1
+                        TEAM: AA.A Site
+                        MESSAGE: Central Lab. 데이터가 정상 반영되었습니다.
+                        INPUT_TIME: '2023-04-14 08:56:37.0'
+                        RESULT: 성공
+                      totalCount: 1
+                      rowCount: 10
+                      pageNo: 1
+                    status: success
+                empty:
+                  summary: No results (datas is null)
+                  value:
+                    result:
+                      columns:
+                        STUDY_ID: SAMPLE_STUDY
+                        LAB_ID: Laboratory Name
+                        SUBJ_ID: Screening No.
+                      datas: null
+                      totalCount: 0
+                      rowCount: 10
+                      pageNo: 1
+                    status: success
         '400':
           $ref: '#/components/responses/CentralLabBadRequest'
         '401':
@@ -921,23 +1059,50 @@ paths:
                     type: string
                     enum:
                     - success
-              example:
-                result:
-                  columns:
-                    STUDY_ID: CUBE_LJT_1925
-                    LAB_ID: Laboratory Name
-                    SUBJ_ID: Screening No.
-                  datas:
-                  - FILE_KEY: 3851047
-                    FILE_NAME: jsonStr_2023-05-12 12:40:23.json
-                    CHECK_RESULT: Partially Successful
-                    SYNC_RESULT: Success
-                    MESSAGE: 유효성 검사를 통과한 Central Lab 데이터만이 정상반영되었습니다.
-                    INPUT_TIME: 2023-05-12 12:40:22 (UTC+9)
-                  totalCount: 119
-                  rowCount: 3
-                  pageNo: 1
-                status: success
+              examples:
+                found:
+                  summary: Lookup succeeded
+                  value:
+                    result:
+                      columns:
+                        STUDY_ID: SAMPLE_STUDY
+                        LAB_ID: Laboratory Name
+                        SUBJ_ID: Screening No.
+                        VISIT_ID: Visit ID
+                        VISIT_DATE: Visit Date
+                        VISIT_TIME: Visit Time
+                        TEST_ID: Lab Test Name
+                        VALUE: Analysis result
+                      datas:
+                      - FILE_KEY: 3851047
+                        FILE_NAME: jsonStr_2023-05-12 12:40:23.json
+                        CHECK_RESULT: Partially Successful
+                        SYNC_RESULT: Success
+                        MESSAGE: 유효성 검사를 통과한 Central Lab 데이터만이 정상반영되었습니다.
+                        INPUT_TIME: 2023-05-12 12:40:22 (UTC+9)
+                      - FILE_KEY: 3851045
+                        FILE_NAME: jsonStr_2023-05-12 10:44:54.json
+                        CHECK_RESULT: Partially Successful
+                        SYNC_RESULT: Success
+                        MESSAGE: 유효성 검사를 통과한 Central Lab 데이터만이 정상반영되었습니다.
+                        INPUT_TIME: 2023-05-12 10:44:53 (UTC+9)
+                      totalCount: 119
+                      rowCount: 3
+                      pageNo: 1
+                    status: success
+                empty:
+                  summary: No results (datas is null)
+                  value:
+                    result:
+                      columns:
+                        STUDY_ID: SAMPLE_STUDY
+                        LAB_ID: Laboratory Name
+                        SUBJ_ID: Screening No.
+                      datas: null
+                      totalCount: 0
+                      rowCount: 3
+                      pageNo: 1
+                    status: success
         '400':
           $ref: '#/components/responses/CentralLabBadRequest'
         '401':
@@ -1112,7 +1277,7 @@ components:
         '
       schema:
         type: string
-      example: thhyun
+      example: user@example.com
     FileKey:
       name: fileKey
       in: path
@@ -1260,29 +1425,83 @@ components:
               summary: Required parameter missing
               value:
                 status: fail
-                message: 필수 파라미터가 누락되었습니다.
+                message: Request Parameter is not valid.
                 error:
                   errorCode: REQUIRED_PARAMETER
                   errorDetails:
                   - userId must not be blank
-            forbidden:
-              summary: No permission (not 403)
+            roleRequired:
+              summary: roleId required (user has more than one role)
               value:
                 status: fail
-                message: 데이터 처리 중 오류가 발생했습니다.
+                message: Request Parameter is not valid.
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - Role id must be specified.
+            userNotFound:
+              summary: User does not exist
+              value:
+                status: fail
+                message: userId does not exist.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - userId does not exist.
+            studyNotFound:
+              summary: Study does not exist
+              value:
+                status: fail
+                message: studyId does not exist.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - studyId does not exist.
+            roleNotFound:
+              summary: Role does not exist
+              value:
+                status: fail
+                message: roleId does not exist.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - roleId does not exist.
+            noSystemPermission:
+              summary: No permission to use the system
+              value:
+                status: fail
+                message: Have no permission to use the system.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - Have no permission to use the system.
+            forbidden:
+              summary: No permission to query Dataset (not 403)
+              value:
+                status: fail
+                message: Do not have permission to query Dataset.
                 error:
                   errorCode: FORBIDDEN
                   errorDetails:
                   - Do not have permission to query Dataset.
-            notFound:
-              summary: Resource not found (not 404)
+            jobKeyNotFound:
+              summary: Job key does not exist (not 404)
               value:
                 status: fail
-                message: 데이터 처리 중 오류가 발생했습니다.
+                message: JobKey does not exist.
                 error:
                   errorCode: RESOURCE_NOT_FOUND
                   errorDetails:
                   - JobKey does not exist.
+            fileNotFound:
+              summary: No file to download
+              value:
+                status: fail
+                message: File does not exist.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - File does not exist.
     DatasetPostBadRequest:
       description: 'Request failed. Unlike GET, the response includes `txId`.
 
@@ -1310,14 +1529,108 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ExternalFailResponse'
-          example:
-            status: fail
-            txId: 8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b
-            message: 필수 파라미터가 누락되었습니다.
-            error:
-              errorCode: INVALID_REQUEST
-              errorDetails:
-              - The code type passed cannot output the file type.
+          examples:
+            requiredParameter:
+              summary: Required parameter missing
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: Request Parameter is not valid.
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - userId must not be blank
+                  - fileType must not be blank
+            roleRequired:
+              summary: roleId required (user has more than one role)
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: Request Parameter is not valid.
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - Role id must be specified.
+            userNotFound:
+              summary: User does not exist
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: userId does not exist.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - userId does not exist.
+            noSystemPermission:
+              summary: No permission to use the system
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: Have no permission to use the system.
+                error:
+                  errorCode: FORBIDDEN
+                  errorDetails:
+                  - Have no permission to use the system.
+            forbidden:
+              summary: No permission to query Dataset (not 403)
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: Do not have permission to query Dataset.
+                error:
+                  errorCode: FORBIDDEN
+                  errorDetails:
+                  - Do not have permission to query Dataset.
+            domainNotFound:
+              summary: Domain does not exist
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: Domain does not exist.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - Domain does not exist.
+            nonCrfMixed:
+              summary: NonCRF (Audit trail) selected together with other sources
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: The NonCRF(Audit trail) item cannot be selected with other sources.
+                error:
+                  errorCode: INVALID_REQUEST
+                  errorDetails:
+                  - The NonCRF(Audit trail) item cannot be selected with other sources.
+            codeTypeInvalid:
+              summary: codeType value is not appropriate
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: Code Type is not appropriate.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - Code Type is not appropriate.
+            fileTypeInvalid:
+              summary: fileType value is not appropriate
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: File Type is not appropriate.
+                error:
+                  errorCode: RESOURCE_NOT_FOUND
+                  errorDetails:
+                  - File Type is not appropriate.
+            typeCombination:
+              summary: codeType x fileType combination is not allowed
+              value:
+                status: fail
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                message: The code type passed cannot output the file type.
+                error:
+                  errorCode: INVALID_REQUEST
+                  errorDetails:
+                  - The code type passed cannot output the file type.
     DatasetJobInProgress:
       description: '**This is a failure, not a success.** An extraction job is already in progress,
 
@@ -1799,6 +2112,42 @@ components:
                   - Required userId parameter 'User not exists' is not present
                 message: Request Parameter is not valid
                 status: fail
+            missingJsonBody:
+              summary: Request body JSON missing or malformed
+              value:
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - Required Body (json Data) parameter 'json data format' is not present
+                message: Request Parameter is not valid
+                status: fail
+            missingResult:
+              summary: result parameter is missing
+              value:
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - Required String parameter 'result' is not present
+                message: Request Parameter is not valid
+                status: fail
+            invalidResult:
+              summary: result is neither S nor F
+              value:
+                error:
+                  errorCode: REQUIRED_PARAMETER
+                  errorDetails:
+                  - invalid parameter (The result should be S or F.)
+                message: Request Parameter is not valid
+                status: fail
+            studyIdFormat:
+              summary: Study ID format mismatch
+              value:
+                error:
+                  errorCode: INVALID_PARAMETER
+                  errorDetails:
+                  - The Study ID of the file you uploaded is not matched with the format you set.
+                message: Request Parameter is not valid
+                status: fail
             invalidFormat:
               summary: Malformed pageNo / rowCount
               value:
@@ -1844,13 +2193,32 @@ components:
                   - No Authorization header
                 message: No Authorization header
                 status: fail
-            noPrivilege:
+            invalidAuthorization:
+              summary: Basic authentication failed
+              value:
+                txId: null
+                error:
+                  errorCode: UNAUTHORIZED
+                  errorDetails:
+                  - Invalid Authorization
+                message: Invalid Authorization
+                status: fail
+            noReadPrivilege:
               summary: No Lab read permission
               value:
                 error:
                   errorCode: NO_PAGE_PERMISSION
                   errorDetails:
                   - Read Privilege not exists
+                message: No Page Permission
+                status: fail
+            noWritePrivilege:
+              summary: No Lab write privilege (data upload)
+              value:
+                error:
+                  errorCode: NO_PAGE_PERMISSION
+                  errorDetails:
+                  - Write Privilege not exists
                 message: No Page Permission
                 status: fail
             fileKeyNotExists:
@@ -1876,7 +2244,7 @@ components:
             error:
               errorCode: NO_PAGE_PERMISSION
               errorDetails:
-              - 'Study is null.[UserId: khkim01, StudyId: K0102]'
+              - 'Study is null.[UserId: user@example.com, StudyId: SAMPLE_STUDY]'
             message: No Page Permission
             status: fail
     CentralLabPayloadTooLarge:
@@ -2372,14 +2740,24 @@ components:
         txId:
           type: string
           description: Transaction identifier. Echoed back in both success and failure responses.
-          example: 8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b
+          example: 550e8400-e29b-41d4-a716-446655440000
         userId:
           type: string
+          maxLength: 60
           description: ID of the user requesting the extraction.
+          example: user@example.com
         roleId:
           type: string
+          maxLength: 32
           nullable: true
-          description: Role ID of the requesting user.
+          description: 'Role ID of the requesting user.
+
+            Required when the user has more than one role. Omitting it returns
+
+            `REQUIRED_PARAMETER` (400, "Role id must be specified.").
+
+            '
+          example: PI
         domainList:
           type: array
           description: 'Domain IDs to extract. Use the `domainId` values returned by
@@ -2397,9 +2775,8 @@ components:
           items:
             type: string
           example:
-          - DM
-          - AE
-          - VS
+          - EN
+          - SV
         codeType:
           $ref: '#/components/schemas/CodeType'
         fileType:
@@ -2565,33 +2942,39 @@ components:
             A blank value returns 400 (`txId must not be blank`).
 
             '
-          example: 2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410
+          example: 550e8400-e29b-41d4-a716-446655440000
         userId:
           type: string
+          maxLength: 60
           description: 'ID of the user performing the registration.
 
             A blank value returns 400 (`userId must not be blank`).
 
             '
+          example: user@example.com
         roleId:
           type: string
+          maxLength: 32
           description: 'Role ID of the user performing the registration.
 
             A blank value returns 400 (`roleId must not be blank`).
 
             '
+          example: PI
         icDate:
           type: string
+          maxLength: 20
           description: Informed Consent Date.
           nullable: true
-          example: '2026-01-15'
+          example: '2022-01-01'
         scrCode:
           type: string
+          maxLength: 16
           description: 'Screening number. A value already in use returns 409 (`CONFLICT`).
 
             '
           nullable: true
-          example: SCR-001
+          example: ST-001
     ExternalSubjectCreateResponse:
       type: object
       description: 'Registration result. Only `subjectId` is returned, and the key is always present.
@@ -2603,7 +2986,7 @@ components:
         subjectId:
           type: string
           description: Identifier of the created subject.
-          example: '0001'
+          example: ST-001
     CentralLabUploadRequest:
       type: object
       description: 'Central Lab test result upload request. The job ID (`fileKey`) is returned
@@ -2626,7 +3009,7 @@ components:
         userId:
           type: string
           description: User ID or email.
-          example: thhyun
+          example: user@example.com
         txId:
           type: string
           maxLength: 36
@@ -2665,7 +3048,7 @@ components:
           type: string
           description: Study ID (CONST). A value that does not match the configured format returns 400
             (`INVALID_PARAMETER`).
-          example: CUBEDEMO-2017
+          example: SAMPLE_STUDY
         LAB_ID:
           type: string
           description: Laboratory Name (REF)

@@ -255,16 +255,40 @@
                     }
                   ]
                 },
-                "example": {
-                  "status": "success",
-                  "result": {
-                    "domains": [
-                      {
-                        "domainId": "DM",
-                        "domainLabel": "Demographics",
-                        "source": "CRF"
+                "examples": {
+                  "list": {
+                    "summary": "조회 성공",
+                    "value": {
+                      "status": "success",
+                      "result": {
+                        "domains": [
+                          {
+                            "domainId": "EN",
+                            "domainLabel": "Enrollment",
+                            "source": "CRF"
+                          },
+                          {
+                            "domainId": "SV",
+                            "domainLabel": "Visit",
+                            "source": "CRF"
+                          },
+                          {
+                            "domainId": "RN",
+                            "domainLabel": "Randomization",
+                            "source": "IWRS"
+                          }
+                        ]
                       }
-                    ]
+                    }
+                  },
+                  "empty": {
+                    "summary": "조회 결과 없음",
+                    "value": {
+                      "status": "success",
+                      "result": {
+                        "domains": []
+                      }
+                    }
                   }
                 }
               }
@@ -321,6 +345,17 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ExtractDatasetRequest"
+              },
+              "example": {
+                "txId": "550e8400-e29b-41d4-a716-446655440000",
+                "userId": "user@example.com",
+                "roleId": "PI",
+                "domainList": [
+                  "EN",
+                  "SV"
+                ],
+                "codeType": "code",
+                "fileType": "csv"
               }
             }
           }
@@ -360,9 +395,9 @@
                 },
                 "example": {
                   "status": "success",
-                  "txId": "8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
                   "result": {
-                    "jobKey": 10231
+                    "jobKey": 1234567
                   }
                 }
               }
@@ -633,6 +668,13 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ExternalSubjectCreateRequest"
+              },
+              "example": {
+                "txId": "550e8400-e29b-41d4-a716-446655440000",
+                "userId": "user@example.com",
+                "roleId": "PI",
+                "icDate": "2022-01-01",
+                "scrCode": "ST-001"
               }
             }
           }
@@ -662,9 +704,9 @@
                 },
                 "example": {
                   "status": "success",
-                  "txId": "2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
                   "result": {
-                    "subjectId": "0001"
+                    "subjectId": "ST-001"
                   }
                 }
               }
@@ -729,11 +771,11 @@
                 "$ref": "#/components/schemas/CentralLabUploadRequest"
               },
               "example": {
-                "userId": "thhyun",
+                "userId": "user@example.com",
                 "txId": "01edf0ad-2e96-1f0a-9e66-745197c08f9a",
                 "data": [
                   {
-                    "STUDY_ID": "CUBEDEMO-2017",
+                    "STUDY_ID": "SAMPLE_STUDY",
                     "LAB_ID": "CRSCUBE",
                     "SUBJ_ID": "S-1Z-001",
                     "SUBJ_INIT": "AAA",
@@ -856,14 +898,43 @@
                     }
                   }
                 },
-                "example": {
-                  "result": {
-                    "validityCheck": "Partially Successful",
-                    "crfSync": "Success",
-                    "fileKey": "3826822",
-                    "message": "Only validated Central Lab data synced."
+                "examples": {
+                  "syncSucceeded": {
+                    "summary": "연동 성공",
+                    "value": {
+                      "result": {
+                        "fileKey": "3826822",
+                        "validityCheck": "Partially Successful",
+                        "crfSync": "Success",
+                        "message": "Only validated Central Lab data synced."
+                      },
+                      "status": "success"
+                    }
                   },
-                  "status": "success"
+                  "syncFailed": {
+                    "summary": "반영할 데이터 없음",
+                    "value": {
+                      "result": {
+                        "fileKey": 1346146,
+                        "validityCheck": "Partially Successful",
+                        "crfSync": "Fail",
+                        "message": "Nothing to sync in validated Central Lab data."
+                      },
+                      "status": "success"
+                    }
+                  },
+                  "validityFailed": {
+                    "summary": "유효성 검사 실패",
+                    "value": {
+                      "result": {
+                        "fileKey": 1346147,
+                        "validityCheck": "Fail",
+                        "crfSync": "-",
+                        "message": "No validated Central Lab data."
+                      },
+                      "status": "success"
+                    }
+                  }
                 }
               }
             }
@@ -944,6 +1015,67 @@
                       "enum": [
                         "success"
                       ]
+                    }
+                  }
+                },
+                "examples": {
+                  "found": {
+                    "summary": "조회 성공 (실패 건 상세)",
+                    "value": {
+                      "result": {
+                        "columns": {
+                          "STUDY_ID": "Study ID",
+                          "LAB_ID": "Laboratory Name",
+                          "SUBJ_ID": "Screening No.",
+                          "GENDER": "Sex",
+                          "VISIT_ID": "Visit ID",
+                          "VISIT_DATE": "Sampling Date",
+                          "TEST_ID": "Analysis Parameter",
+                          "VALUE": "Analysis result",
+                          "RANGE_FLAG": "Out of Range Flag",
+                          "COMMENTS": "Remark/Comment",
+                          "LAB_SAMPLE_ID": "Accession No."
+                        },
+                        "datas": [
+                          {
+                            "STUDY_ID": "SAMPLE_STUDY",
+                            "LAB_ID": "LAB",
+                            "SUBJ_ID": "S06-30",
+                            "GENDER": "M",
+                            "VISIT_ID": "3",
+                            "VISIT_DATE": "20220713",
+                            "TEST_ID": "Total Cholesterol",
+                            "VALUE": "202",
+                            "RANGE_FLAG": "A",
+                            "COMMENTS": "",
+                            "LAB_SAMPLE_ID": "null",
+                            "MESSAGE": "This subject doesn't exist. [Screening No.]",
+                            "INPUT_TIME": "2022-12-30 09:20:09 (UTC+9)",
+                            "RESULT": "F"
+                          }
+                        ],
+                        "totalCount": 33,
+                        "rowCount": 2,
+                        "pageNo": 1
+                      },
+                      "status": "success"
+                    }
+                  },
+                  "empty": {
+                    "summary": "조회 결과 없음 (datas 가 null)",
+                    "value": {
+                      "result": {
+                        "columns": {
+                          "STUDY_ID": "Study ID",
+                          "LAB_ID": "Laboratory Name",
+                          "SUBJ_ID": "Screening No."
+                        },
+                        "datas": null,
+                        "totalCount": 0,
+                        "rowCount": 2,
+                        "pageNo": 1
+                      },
+                      "status": "success"
                     }
                   }
                 }
@@ -1028,6 +1160,56 @@
                       ]
                     }
                   }
+                },
+                "examples": {
+                  "found": {
+                    "summary": "조회 성공",
+                    "value": {
+                      "result": {
+                        "columns": {
+                          "STUDY_ID": "SAMPLE_STUDY",
+                          "LAB_ID": "Laboratory Name",
+                          "SUBJ_ID": "Screening No.",
+                          "VISIT_ID": "Visit ID",
+                          "VISIT_DATE": "Visit Date",
+                          "VISIT_TIME": "Visit Time",
+                          "TEST_ID": "Lab Test Name",
+                          "VALUE": "Analysis result"
+                        },
+                        "datas": [
+                          {
+                            "SUBJ_ID": "SAA001",
+                            "VISIT_ID": "V1",
+                            "TEAM": "AA.A Site",
+                            "MESSAGE": "Central Lab. 데이터가 정상 반영되었습니다.",
+                            "INPUT_TIME": "2023-04-14 08:56:37.0",
+                            "RESULT": "성공"
+                          }
+                        ],
+                        "totalCount": 1,
+                        "rowCount": 10,
+                        "pageNo": 1
+                      },
+                      "status": "success"
+                    }
+                  },
+                  "empty": {
+                    "summary": "조회 결과 없음 (datas 가 null)",
+                    "value": {
+                      "result": {
+                        "columns": {
+                          "STUDY_ID": "SAMPLE_STUDY",
+                          "LAB_ID": "Laboratory Name",
+                          "SUBJ_ID": "Screening No."
+                        },
+                        "datas": null,
+                        "totalCount": 0,
+                        "rowCount": 10,
+                        "pageNo": 1
+                      },
+                      "status": "success"
+                    }
+                  }
                 }
               }
             }
@@ -1108,28 +1290,63 @@
                     }
                   }
                 },
-                "example": {
-                  "result": {
-                    "columns": {
-                      "STUDY_ID": "CUBE_LJT_1925",
-                      "LAB_ID": "Laboratory Name",
-                      "SUBJ_ID": "Screening No."
-                    },
-                    "datas": [
-                      {
-                        "FILE_KEY": 3851047,
-                        "FILE_NAME": "jsonStr_2023-05-12 12:40:23.json",
-                        "CHECK_RESULT": "Partially Successful",
-                        "SYNC_RESULT": "Success",
-                        "MESSAGE": "유효성 검사를 통과한 Central Lab 데이터만이 정상반영되었습니다.",
-                        "INPUT_TIME": "2023-05-12 12:40:22 (UTC+9)"
-                      }
-                    ],
-                    "totalCount": 119,
-                    "rowCount": 3,
-                    "pageNo": 1
+                "examples": {
+                  "found": {
+                    "summary": "조회 성공",
+                    "value": {
+                      "result": {
+                        "columns": {
+                          "STUDY_ID": "SAMPLE_STUDY",
+                          "LAB_ID": "Laboratory Name",
+                          "SUBJ_ID": "Screening No.",
+                          "VISIT_ID": "Visit ID",
+                          "VISIT_DATE": "Visit Date",
+                          "VISIT_TIME": "Visit Time",
+                          "TEST_ID": "Lab Test Name",
+                          "VALUE": "Analysis result"
+                        },
+                        "datas": [
+                          {
+                            "FILE_KEY": 3851047,
+                            "FILE_NAME": "jsonStr_2023-05-12 12:40:23.json",
+                            "CHECK_RESULT": "Partially Successful",
+                            "SYNC_RESULT": "Success",
+                            "MESSAGE": "유효성 검사를 통과한 Central Lab 데이터만이 정상반영되었습니다.",
+                            "INPUT_TIME": "2023-05-12 12:40:22 (UTC+9)"
+                          },
+                          {
+                            "FILE_KEY": 3851045,
+                            "FILE_NAME": "jsonStr_2023-05-12 10:44:54.json",
+                            "CHECK_RESULT": "Partially Successful",
+                            "SYNC_RESULT": "Success",
+                            "MESSAGE": "유효성 검사를 통과한 Central Lab 데이터만이 정상반영되었습니다.",
+                            "INPUT_TIME": "2023-05-12 10:44:53 (UTC+9)"
+                          }
+                        ],
+                        "totalCount": 119,
+                        "rowCount": 3,
+                        "pageNo": 1
+                      },
+                      "status": "success"
+                    }
                   },
-                  "status": "success"
+                  "empty": {
+                    "summary": "조회 결과 없음 (datas 가 null)",
+                    "value": {
+                      "result": {
+                        "columns": {
+                          "STUDY_ID": "SAMPLE_STUDY",
+                          "LAB_ID": "Laboratory Name",
+                          "SUBJ_ID": "Screening No."
+                        },
+                        "datas": null,
+                        "totalCount": 0,
+                        "rowCount": 3,
+                        "pageNo": 1
+                      },
+                      "status": "success"
+                    }
+                  }
                 }
               }
             }
@@ -1281,7 +1498,7 @@
         "schema": {
           "type": "string"
         },
-        "example": "thhyun"
+        "example": "user@example.com"
       },
       "FileKey": {
         "name": "fileKey",
@@ -1401,7 +1618,7 @@
                 "summary": "필수 파라미터 누락",
                 "value": {
                   "status": "fail",
-                  "message": "필수 파라미터가 누락되었습니다.",
+                  "message": "Request Parameter is not valid.",
                   "error": {
                     "errorCode": "REQUIRED_PARAMETER",
                     "errorDetails": [
@@ -1410,11 +1627,76 @@
                   }
                 }
               },
-              "forbidden": {
-                "summary": "권한 없음 (403 아님)",
+              "roleRequired": {
+                "summary": "역할이 둘 이상이라 roleId 필요",
                 "value": {
                   "status": "fail",
-                  "message": "데이터 처리 중 오류가 발생했습니다.",
+                  "message": "Request Parameter is not valid.",
+                  "error": {
+                    "errorCode": "REQUIRED_PARAMETER",
+                    "errorDetails": [
+                      "Role id must be specified."
+                    ]
+                  }
+                }
+              },
+              "userNotFound": {
+                "summary": "사용자 없음",
+                "value": {
+                  "status": "fail",
+                  "message": "userId does not exist.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "userId does not exist."
+                    ]
+                  }
+                }
+              },
+              "studyNotFound": {
+                "summary": "과제 없음",
+                "value": {
+                  "status": "fail",
+                  "message": "studyId does not exist.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "studyId does not exist."
+                    ]
+                  }
+                }
+              },
+              "roleNotFound": {
+                "summary": "역할 없음",
+                "value": {
+                  "status": "fail",
+                  "message": "roleId does not exist.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "roleId does not exist."
+                    ]
+                  }
+                }
+              },
+              "noSystemPermission": {
+                "summary": "시스템 사용 권한 없음",
+                "value": {
+                  "status": "fail",
+                  "message": "Have no permission to use the system.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "Have no permission to use the system."
+                    ]
+                  }
+                }
+              },
+              "forbidden": {
+                "summary": "Dataset 조회 권한 없음 (403 아님)",
+                "value": {
+                  "status": "fail",
+                  "message": "Do not have permission to query Dataset.",
                   "error": {
                     "errorCode": "FORBIDDEN",
                     "errorDetails": [
@@ -1423,15 +1705,28 @@
                   }
                 }
               },
-              "notFound": {
-                "summary": "리소스 없음 (404 아님)",
+              "jobKeyNotFound": {
+                "summary": "작업 키 없음 (404 아님)",
                 "value": {
                   "status": "fail",
-                  "message": "데이터 처리 중 오류가 발생했습니다.",
+                  "message": "JobKey does not exist.",
                   "error": {
                     "errorCode": "RESOURCE_NOT_FOUND",
                     "errorDetails": [
                       "JobKey does not exist."
+                    ]
+                  }
+                }
+              },
+              "fileNotFound": {
+                "summary": "내려받을 파일 없음",
+                "value": {
+                  "status": "fail",
+                  "message": "File does not exist.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "File does not exist."
                     ]
                   }
                 }
@@ -1447,15 +1742,147 @@
             "schema": {
               "$ref": "#/components/schemas/ExternalFailResponse"
             },
-            "example": {
-              "status": "fail",
-              "txId": "8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b",
-              "message": "필수 파라미터가 누락되었습니다.",
-              "error": {
-                "errorCode": "INVALID_REQUEST",
-                "errorDetails": [
-                  "The code type passed cannot output the file type."
-                ]
+            "examples": {
+              "requiredParameter": {
+                "summary": "필수 파라미터 누락",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "Request Parameter is not valid.",
+                  "error": {
+                    "errorCode": "REQUIRED_PARAMETER",
+                    "errorDetails": [
+                      "userId must not be blank",
+                      "fileType must not be blank"
+                    ]
+                  }
+                }
+              },
+              "roleRequired": {
+                "summary": "역할이 둘 이상이라 roleId 필요",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "Request Parameter is not valid.",
+                  "error": {
+                    "errorCode": "REQUIRED_PARAMETER",
+                    "errorDetails": [
+                      "Role id must be specified."
+                    ]
+                  }
+                }
+              },
+              "userNotFound": {
+                "summary": "사용자 없음",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "userId does not exist.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "userId does not exist."
+                    ]
+                  }
+                }
+              },
+              "noSystemPermission": {
+                "summary": "시스템 사용 권한 없음",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "Have no permission to use the system.",
+                  "error": {
+                    "errorCode": "FORBIDDEN",
+                    "errorDetails": [
+                      "Have no permission to use the system."
+                    ]
+                  }
+                }
+              },
+              "forbidden": {
+                "summary": "Dataset 조회 권한 없음 (403 아님)",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "Do not have permission to query Dataset.",
+                  "error": {
+                    "errorCode": "FORBIDDEN",
+                    "errorDetails": [
+                      "Do not have permission to query Dataset."
+                    ]
+                  }
+                }
+              },
+              "domainNotFound": {
+                "summary": "도메인 없음",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "Domain does not exist.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "Domain does not exist."
+                    ]
+                  }
+                }
+              },
+              "nonCrfMixed": {
+                "summary": "NonCRF(Audit trail) 를 다른 소스와 함께 선택",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "The NonCRF(Audit trail) item cannot be selected with other sources.",
+                  "error": {
+                    "errorCode": "INVALID_REQUEST",
+                    "errorDetails": [
+                      "The NonCRF(Audit trail) item cannot be selected with other sources."
+                    ]
+                  }
+                }
+              },
+              "codeTypeInvalid": {
+                "summary": "codeType 값 부적절",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "Code Type is not appropriate.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "Code Type is not appropriate."
+                    ]
+                  }
+                }
+              },
+              "fileTypeInvalid": {
+                "summary": "fileType 값 부적절",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "File Type is not appropriate.",
+                  "error": {
+                    "errorCode": "RESOURCE_NOT_FOUND",
+                    "errorDetails": [
+                      "File Type is not appropriate."
+                    ]
+                  }
+                }
+              },
+              "typeCombination": {
+                "summary": "codeType × fileType 조합 불가",
+                "value": {
+                  "status": "fail",
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "The code type passed cannot output the file type.",
+                  "error": {
+                    "errorCode": "INVALID_REQUEST",
+                    "errorDetails": [
+                      "The code type passed cannot output the file type."
+                    ]
+                  }
+                }
               }
             }
           }
@@ -1981,6 +2408,58 @@
                   "status": "fail"
                 }
               },
+              "missingJsonBody": {
+                "summary": "본문 JSON 누락·형식 오류",
+                "value": {
+                  "error": {
+                    "errorCode": "REQUIRED_PARAMETER",
+                    "errorDetails": [
+                      "Required Body (json Data) parameter 'json data format' is not present"
+                    ]
+                  },
+                  "message": "Request Parameter is not valid",
+                  "status": "fail"
+                }
+              },
+              "missingResult": {
+                "summary": "result 파라미터 누락",
+                "value": {
+                  "error": {
+                    "errorCode": "REQUIRED_PARAMETER",
+                    "errorDetails": [
+                      "Required String parameter 'result' is not present"
+                    ]
+                  },
+                  "message": "Request Parameter is not valid",
+                  "status": "fail"
+                }
+              },
+              "invalidResult": {
+                "summary": "result 값이 S·F 가 아님",
+                "value": {
+                  "error": {
+                    "errorCode": "REQUIRED_PARAMETER",
+                    "errorDetails": [
+                      "invalid parameter (The result should be S or F.)"
+                    ]
+                  },
+                  "message": "Request Parameter is not valid",
+                  "status": "fail"
+                }
+              },
+              "studyIdFormat": {
+                "summary": "Study ID Format 불일치",
+                "value": {
+                  "error": {
+                    "errorCode": "INVALID_PARAMETER",
+                    "errorDetails": [
+                      "The Study ID of the file you uploaded is not matched with the format you set."
+                    ]
+                  },
+                  "message": "Request Parameter is not valid",
+                  "status": "fail"
+                }
+              },
               "invalidFormat": {
                 "summary": "pageNo/rowCount 형식 오류",
                 "value": {
@@ -2020,13 +2499,40 @@
                   "status": "fail"
                 }
               },
-              "noPrivilege": {
+              "invalidAuthorization": {
+                "summary": "Basic 인증 실패",
+                "value": {
+                  "txId": null,
+                  "error": {
+                    "errorCode": "UNAUTHORIZED",
+                    "errorDetails": [
+                      "Invalid Authorization"
+                    ]
+                  },
+                  "message": "Invalid Authorization",
+                  "status": "fail"
+                }
+              },
+              "noReadPrivilege": {
                 "summary": "Lab Read 권한 없음",
                 "value": {
                   "error": {
                     "errorCode": "NO_PAGE_PERMISSION",
                     "errorDetails": [
                       "Read Privilege not exists"
+                    ]
+                  },
+                  "message": "No Page Permission",
+                  "status": "fail"
+                }
+              },
+              "noWritePrivilege": {
+                "summary": "Lab Write 권한 없음 (데이터 전송)",
+                "value": {
+                  "error": {
+                    "errorCode": "NO_PAGE_PERMISSION",
+                    "errorDetails": [
+                      "Write Privilege not exists"
                     ]
                   },
                   "message": "No Page Permission",
@@ -2061,7 +2567,7 @@
               "error": {
                 "errorCode": "NO_PAGE_PERMISSION",
                 "errorDetails": [
-                  "Study is null.[UserId: khkim01, StudyId: K0102]"
+                  "Study is null.[UserId: user@example.com, StudyId: SAMPLE_STUDY]"
                 ]
               },
               "message": "No Page Permission",
@@ -2498,16 +3004,20 @@
           "txId": {
             "type": "string",
             "description": "트랜잭션 식별자. 성공·실패 응답에 그대로 반환됩니다.",
-            "example": "8f7c0e41-6a4b-4a1a-9f0b-2d3c4e5f6a7b"
+            "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           "userId": {
             "type": "string",
-            "description": "추출을 요청한 사용자 ID."
+            "maxLength": 60,
+            "description": "추출을 요청한 사용자 ID.",
+            "example": "user@example.com"
           },
           "roleId": {
             "type": "string",
+            "maxLength": 32,
             "nullable": true,
-            "description": "요청 사용자의 역할 ID."
+            "description": "요청 사용자의 역할 ID.\n역할이 둘 이상이면 지정해야 합니다. 없으면\n`REQUIRED_PARAMETER`(400, \"Role id must be specified.\")입니다.\n",
+            "example": "PI"
           },
           "domainList": {
             "type": "array",
@@ -2516,9 +3026,8 @@
               "type": "string"
             },
             "example": [
-              "DM",
-              "AE",
-              "VS"
+              "EN",
+              "SV"
             ]
           },
           "codeType": {
@@ -2606,27 +3115,33 @@
           "txId": {
             "type": "string",
             "description": "트랜잭션 식별자. 성공·실패 응답에 그대로 반환됩니다.\n비어 있으면 400 (`txId must not be blank`).\n",
-            "example": "2b9d1c33-0d7e-4a02-9d1f-71a2f6c8b410"
+            "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           "userId": {
             "type": "string",
-            "description": "등록을 수행하는 사용자 ID.\n비어 있으면 400 (`userId must not be blank`).\n"
+            "maxLength": 60,
+            "description": "등록을 수행하는 사용자 ID.\n비어 있으면 400 (`userId must not be blank`).\n",
+            "example": "user@example.com"
           },
           "roleId": {
             "type": "string",
-            "description": "등록을 수행하는 사용자의 역할 ID.\n비어 있으면 400 (`roleId must not be blank`).\n"
+            "maxLength": 32,
+            "description": "등록을 수행하는 사용자의 역할 ID.\n비어 있으면 400 (`roleId must not be blank`).\n",
+            "example": "PI"
           },
           "icDate": {
             "type": "string",
+            "maxLength": 20,
             "description": "동의 취득일(Informed Consent Date).",
             "nullable": true,
-            "example": "2026-01-15"
+            "example": "2022-01-01"
           },
           "scrCode": {
             "type": "string",
+            "maxLength": 16,
             "description": "스크리닝 번호. 이미 사용 중인 값이면 409(`CONFLICT`)입니다.\n",
             "nullable": true,
-            "example": "SCR-001"
+            "example": "ST-001"
           }
         }
       },
@@ -2640,7 +3155,7 @@
           "subjectId": {
             "type": "string",
             "description": "생성된 시험대상자 식별자.",
-            "example": "0001"
+            "example": "ST-001"
           }
         }
       },
@@ -2656,7 +3171,7 @@
           "userId": {
             "type": "string",
             "description": "User ID 또는 Email.",
-            "example": "thhyun"
+            "example": "user@example.com"
           },
           "txId": {
             "type": "string",
@@ -2689,7 +3204,7 @@
           "STUDY_ID": {
             "type": "string",
             "description": "Study ID (CONST). 설정된 Format 과 다르면 400(`INVALID_PARAMETER`).",
-            "example": "CUBEDEMO-2017"
+            "example": "SAMPLE_STUDY"
           },
           "LAB_ID": {
             "type": "string",
