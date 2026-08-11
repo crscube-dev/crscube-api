@@ -69,7 +69,44 @@ info:
     ```
 
     발급받은 clientId 와 password 를 `:` 로 이어 Base64 로 인코딩한 값입니다
-    (RFC 7235 4.2).
+    (RFC 7235 4.2). 대부분의 HTTP 클라이언트가 대신 만들어 줍니다(`curl -u` 등).
+    직접 만든다면:
+
+    ```java
+    // Apache Commons Codec
+    final String clientId = "clientId";
+    final String clientPassword = "clientPassword";
+    return new HttpHeaders() {{
+        String auth = clientId + ":" + clientPassword;
+        byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(Charset.forName("US-ASCII")));
+        String authHeader = "Basic " + new String(encodedAuth);
+        set("Authorization", authHeader);
+    }};
+    ```
+
+    ```java
+    // Base64Utils — Spring Framework 6 에서 제거되었습니다. 아래 방식을 쓰세요.
+    final String clientId = "clientId";
+    final String clientPassword = "clientPassword";
+    return new HttpHeaders() {{
+        String auth = clientId + ":" + clientPassword;
+        String authHeader = "Basic " + Base64Utils.encodeToString(auth.getBytes(StandardCharsets.US_ASCII));
+        set("Authorization", authHeader);
+    }};
+    ```
+
+    ```java
+    // java.util.Base64 — 별도 의존성이 필요 없습니다.
+    String auth = clientId + ":" + clientPassword;
+    String authHeader = "Basic " + Base64.getEncoder()
+            .encodeToString(auth.getBytes(StandardCharsets.US_ASCII));
+    ```
+
+    ```python
+    import base64
+    auth = base64.b64encode(f"{client_id}:{client_password}".encode("ascii")).decode()
+    headers = {"Authorization": f"Basic {auth}"}
+    ```
 
     | 주의 | 내용 |
     |------|------|
@@ -99,10 +136,58 @@ info:
     요청부터 응답까지 하나의 트랜잭션을 잇는 유일 식별자입니다. **클라이언트가
     UUID version 1 로 생성**해 전달합니다. 최대 36 Byte.
 
+    ```python
+    import uuid
+    tx_id = str(uuid.uuid1())
+    ```
+
+    ```javascript
+    import { v1 as uuidv1 } from "uuid";
+    const txId = uuidv1();
+    ```
+
+    JDK 에는 version 1 생성기가 없습니다(`randomUUID` 는 version 4). 직접
+    구성하거나 별도 라이브러리를 쓰세요.
+
+    ```java
+    // 참고: https://www.baeldung.com/java-uuid
+    public static void printUUID() {
+        System.out.println("UUID:" + generateType1UUID().toString());
+    }
+
+    private static UUID generateType1UUID() {
+        long most64SigBits = get64MostSignificantBitsForVersion1();
+        long least64SigBits = get64LeastSignificantBitsForVersion1();
+
+        return new UUID(most64SigBits, least64SigBits);
+    }
+
+    private static long get64LeastSignificantBitsForVersion1() {
+        Random random = new Random();
+        long random63BitLong = random.nextLong() & 0x3FFFFFFFFFFFFFFFL;
+        long variant3BitFlag = 0x8000000000000000L;
+        return random63BitLong + variant3BitFlag;
+    }
+
+    private static long get64MostSignificantBitsForVersion1() {
+        LocalDateTime start = LocalDateTime.of(1582, 10, 15, 0, 0, 0);
+        Duration duration = Duration.between(start, LocalDateTime.now());
+        long seconds = duration.getSeconds();
+        long nanos = duration.getNano();
+        long timeForUuidIn100Nanos = seconds * 10000000 + nanos * 100;   // 아래 주의
+        long least12SignificatBitOfTime = (timeForUuidIn100Nanos & 0x000000000000FFFFL) >> 4;
+        long version = 1 << 12;
+        return (timeForUuidIn100Nanos & 0xFFFFFFFFFFFF0000L) + version + least12SignificatBitOfTime;
+    }
+    ```
+
+    - `nanos * 100` 은 `nanos / 100` 이어야 합니다. 시간 필드 단위가 100 나노초
+      이기 때문입니다. 유일성은 하위 63비트 난수에서 나오므로 실사용에 지장은
+      없지만, 박히는 타임스탬프가 어긋나고 단조 증가하지 않습니다.
     - **중복 방지 키가 아닙니다.** 같은 `txId` 로 다시 보내도 서버가 막지
       않으므로, 쓰기 요청을 재시도하면 두 번 반영됩니다.
-    - **시간 순서로 정렬하지 마세요.** 생성 구현에 따라 타임스탬프가 단조
-      증가하지 않습니다.
+    - **시간 순서로 정렬하지 마세요.** 위 이유로 타임스탬프가 단조 증가하지
+      않습니다.
 
     ---
 

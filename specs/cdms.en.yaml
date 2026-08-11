@@ -28,22 +28,51 @@ info:
     \ | v1, v2 |\n\n## Authentication\n\nHTTP Basic Authentication (RFC 7617), verified by the gateway.\n\
     \nThis API is stateless. There is no login or session step, so every request must\ncarry its credentials\
     \ in the header.\n\n```\nAuthorization: Basic {base64(clientId:clientSecret)}\n```\n\nJoin the clientId\
-    \ and password issued to you with `:` and Base64-encode the\nresult (RFC 7235 4.2).\n\n| Caution |\
-    \ Detail |\n|---------|--------|\n| Credential characters | Use ASCII only. A charset mismatch between\
-    \ encoding and decoding returns 401 |\n| No line breaks | MIME-style encoders wrap every 76 characters\
-    \ and corrupt the header value |\n| Every request | There is no session to authenticate once and reuse\
-    \ |\n\n### Query string encoding\n\nEncode parameters before sending them, but encode them **only\
-    \ once**. Passing an\nalready-encoded string back through a URI template turns `%40` into `%2540`,\
-    \ and\nthe value stops matching.\n\nA `+` inside a value must be encoded as `%2B`. In a query string\
-    \ `+` means a\nspace, and RFC 3986 encoders may leave it as is, so `user+tag@example.com`\narrives\
-    \ as `user tag@example.com`.\n\nThis applies to `userId` (an email address) and `fileKey`.\n\n| Symptom\
-    \ | Cause |\n|---------|-------|\n| 200 with an empty result | The value was encoded twice |\n| Text\
-    \ after `+` in an email became a space | `+` was not encoded as `%2B` |\n\n### txId\n\nThe unique\
-    \ identifier tying one transaction together from request to response.\n**The client generates it as\
-    \ a UUID version 1** and sends it. 36 bytes max.\n\n- **It is not a deduplication key.** Sending the\
-    \ same `txId` again is not\n  rejected, so retrying a write applies it twice.\n- **Do not sort by\
-    \ it.** Depending on the generator, the embedded timestamp is\n  not monotonic.\n\n---\n\nCopyright\
-    \ (c) CRScube Co., Ltd. All Rights Reserved\n"
+    \ and password issued to you with `:` and Base64-encode the\nresult (RFC 7235 4.2). Most HTTP clients\
+    \ build this for you (`curl -u` and the\nlike). To build it yourself:\n\n```java\n// Apache Commons\
+    \ Codec\nfinal String clientId = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\n\
+    return new HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n    byte[] encodedAuth\
+    \ = Base64.encodeBase64(auth.getBytes(Charset.forName(\"US-ASCII\")));\n    String authHeader = \"\
+    Basic \" + new String(encodedAuth);\n    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n\
+    // Base64Utils - removed in Spring Framework 6. Prefer the approach below.\nfinal String clientId\
+    \ = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\nreturn new HttpHeaders() {{\n\
+    \    String auth = clientId + \":\" + clientPassword;\n    String authHeader = \"Basic \" + Base64Utils.encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n\
+    \    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n// java.util.Base64 - no extra dependency\
+    \ required.\nString auth = clientId + \":\" + clientPassword;\nString authHeader = \"Basic \" + Base64.getEncoder()\n\
+    \        .encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n```\n\n```python\nimport base64\n\
+    auth = base64.b64encode(f\"{client_id}:{client_password}\".encode(\"ascii\")).decode()\nheaders =\
+    \ {\"Authorization\": f\"Basic {auth}\"}\n```\n\n| Caution | Detail |\n|---------|--------|\n| Credential\
+    \ characters | Use ASCII only. A charset mismatch between encoding and decoding returns 401 |\n| No\
+    \ line breaks | MIME-style encoders wrap every 76 characters and corrupt the header value |\n| Every\
+    \ request | There is no session to authenticate once and reuse |\n\n### Query string encoding\n\n\
+    Encode parameters before sending them, but encode them **only once**. Passing an\nalready-encoded\
+    \ string back through a URI template turns `%40` into `%2540`, and\nthe value stops matching.\n\n\
+    A `+` inside a value must be encoded as `%2B`. In a query string `+` means a\nspace, and RFC 3986\
+    \ encoders may leave it as is, so `user+tag@example.com`\narrives as `user tag@example.com`.\n\nThis\
+    \ applies to `userId` (an email address) and `fileKey`.\n\n| Symptom | Cause |\n|---------|-------|\n\
+    | 200 with an empty result | The value was encoded twice |\n| Text after `+` in an email became a\
+    \ space | `+` was not encoded as `%2B` |\n\n### txId\n\nThe unique identifier tying one transaction\
+    \ together from request to response.\n**The client generates it as a UUID version 1** and sends it.\
+    \ 36 bytes max.\n\n```python\nimport uuid\ntx_id = str(uuid.uuid1())\n```\n\n```javascript\nimport\
+    \ { v1 as uuidv1 } from \"uuid\";\nconst txId = uuidv1();\n```\n\nThe JDK has no version 1 generator\
+    \ (`randomUUID` is version 4). Build one\nyourself or use a library.\n\n```java\n// Reference: https://www.baeldung.com/java-uuid\n\
+    public static void printUUID() {\n    System.out.println(\"UUID:\" + generateType1UUID().toString());\n\
+    }\n\nprivate static UUID generateType1UUID() {\n    long most64SigBits = get64MostSignificantBitsForVersion1();\n\
+    \    long least64SigBits = get64LeastSignificantBitsForVersion1();\n\n    return new UUID(most64SigBits,\
+    \ least64SigBits);\n}\n\nprivate static long get64LeastSignificantBitsForVersion1() {\n    Random\
+    \ random = new Random();\n    long random63BitLong = random.nextLong() & 0x3FFFFFFFFFFFFFFFL;\n  \
+    \  long variant3BitFlag = 0x8000000000000000L;\n    return random63BitLong + variant3BitFlag;\n}\n\
+    \nprivate static long get64MostSignificantBitsForVersion1() {\n    LocalDateTime start = LocalDateTime.of(1582,\
+    \ 10, 15, 0, 0, 0);\n    Duration duration = Duration.between(start, LocalDateTime.now());\n    long\
+    \ seconds = duration.getSeconds();\n    long nanos = duration.getNano();\n    long timeForUuidIn100Nanos\
+    \ = seconds * 10000000 + nanos * 100;   // see below\n    long least12SignificatBitOfTime = (timeForUuidIn100Nanos\
+    \ & 0x000000000000FFFFL) >> 4;\n    long version = 1 << 12;\n    return (timeForUuidIn100Nanos & 0xFFFFFFFFFFFF0000L)\
+    \ + version + least12SignificatBitOfTime;\n}\n```\n\n- `nanos * 100` should be `nanos / 100`, because\
+    \ the time field is measured in\n  100-nanosecond units. Uniqueness comes from the low 63 random bits,\
+    \ so this\n  does not break anything in practice, but the embedded timestamp is off and is\n  not\
+    \ monotonic.\n- **It is not a deduplication key.** Sending the same `txId` again is not\n  rejected,\
+    \ so retrying a write applies it twice.\n- **Do not sort by it.** The timestamp is not monotonic,\
+    \ for the reason above.\n\n---\n\nCopyright (c) CRScube Co., Ltd. All Rights Reserved\n"
   contact:
     name: CRScube
     url: https://crscube.io
