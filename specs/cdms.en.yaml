@@ -2,118 +2,48 @@ openapi: 3.0.3
 info:
   title: CDMS API
   version: 1.0.0
-  description: 'OpenAPI specification for the REST APIs that CRScube CDMS exposes externally
-
-    through its API gateway.
-
-
-    This document covers the public integration APIs for CDMS.
-
-
-    ## Scope
-
-
-    | Area | Operations | Tag |
-
-    |------|-----------:|-----|
-
-    | CRF data upload | 1 | `crf` |
-
-    | Dataset extraction | 4 | `dataset` |
-
-    | Subject registration | 1 | `subject` |
-
-    | Central Lab | 5 | `central-lab` |
-
-
-    ## How to read the status codes
-
-
-    There are several places where HTTP status codes are used differently from what
-
-    you would expect. Review this table before you integrate.
-
-
-    | Situation | Actual response | Expected |
-
-    |-----------|-----------------|----------|
-
-    | CRF server-side processing failure | **200** + `result: false` | 5xx |
-
-    | No study access permission for CRF | **200** + `(2200)` | 403 |
-
-    | Extraction in progress / download not ready | **202** + `status: fail` | 409 |
-
-    | Resource not found (`RESOURCE_NOT_FOUND`) | **400** | 404 |
-
-    | No permission (`FORBIDDEN`) | **400** | 403 |
-
-    | Internal dataset error (`INTERNAL_SERVER_ERROR`) | **400** | 500 |
-
-    | Central Lab FileKey missing | **401** | 404 |
-
-    | Central Lab data buffer exceeded | **413** | 400 |
-
-    | Duplicate screening number (`CONFLICT`) | 409 | 409 |
-
-
-    **Never treat 2xx as success on its own.** Failures arrive with 200 and 202.
-
-
-    401, 403, 404, 500 and 504 are returned by **the gateway**. Only the CRF
-
-    endpoint delivers those errors in the `ApiResponse` format; everything else
-
-    uses `GatewayFailResponse`.
-
-
-    ## Response formats
-
-
-    | Response format | Structure | Used by |
-
-    |-----------------|-----------|---------|
-
-    | `ApiResponse` | `{txId, result, error{message, errors}}` | CRF, and gateway errors on CRF |
-
-    | `SuccessResponse` / `FailResponse` | `{status, result}` / `{status, message, error{errorCode, errorDetails}}`
-    | dataset GET |
-
-    | `ExternalSuccessResponse` / `ExternalFailResponse` | the above plus `txId` | dataset POST, subject
-    |
-
-    | `GatewayFailResponse` | `{txId, error{errorCode, errorDetails}, message, status}` | common gateway
-    errors |
-
-    | `CentralLabFailResponse` | same shape as above, different `errorCode` set | central-lab |
-
-
-    ## Version segment
-
-
-    | Target | Path | Note |
-
-    |--------|------|------|
-
-    | CRF upload | `/api/1.00` | |
-
-    | dataset, subject | `/api/1.00` | |
-
-    | central-lab | `/api/{version}` | v1, v2 |
-
-
-    ## Authentication
-
-
-    HTTP Basic Authentication (RFC 7617), verified by the gateway.
-
-
-    ---
-
-
-    Copyright (c) CRScube Co., Ltd. All Rights Reserved
-
-    '
+  description: "OpenAPI specification for the REST APIs that CRScube CDMS exposes externally\nthrough\
+    \ its API gateway.\n\nThis document covers the public integration APIs for CDMS.\n\n## Scope\n\n|\
+    \ Area | Operations | Tag |\n|------|-----------:|-----|\n| CRF data upload | 1 | `crf` |\n| Dataset\
+    \ extraction | 4 | `dataset` |\n| Subject registration | 1 | `subject` |\n| Central Lab | 5 | `central-lab`\
+    \ |\n\n## How to read the status codes\n\nThere are several places where HTTP status codes are used\
+    \ differently from what\nyou would expect. Review this table before you integrate.\n\n| Situation\
+    \ | Actual response | Expected |\n|-----------|-----------------|----------|\n| CRF server-side processing\
+    \ failure | **200** + `result: false` | 5xx |\n| No study access permission for CRF | **200** + `(2200)`\
+    \ | 403 |\n| Extraction in progress / download not ready | **202** + `status: fail` | 409 |\n| Resource\
+    \ not found (`RESOURCE_NOT_FOUND`) | **400** | 404 |\n| No permission (`FORBIDDEN`) | **400** | 403\
+    \ |\n| Internal dataset error (`INTERNAL_SERVER_ERROR`) | **400** | 500 |\n| Central Lab FileKey missing\
+    \ | **401** | 404 |\n| Central Lab data buffer exceeded | **413** | 400 |\n| Duplicate screening number\
+    \ (`CONFLICT`) | 409 | 409 |\n\n**Never treat 2xx as success on its own.** Failures arrive with 200\
+    \ and 202.\n\n401, 403, 404, 500 and 504 are returned by **the gateway**. Only the CRF\nendpoint delivers\
+    \ those errors in the `ApiResponse` format; everything else\nuses `GatewayFailResponse`.\n\n## Response\
+    \ formats\n\n| Response format | Structure | Used by |\n|-----------------|-----------|---------|\n\
+    | `ApiResponse` | `{txId, result, error{message, errors}}` | CRF, and gateway errors on CRF |\n| `SuccessResponse`\
+    \ / `FailResponse` | `{status, result}` / `{status, message, error{errorCode, errorDetails}}` | dataset\
+    \ GET |\n| `ExternalSuccessResponse` / `ExternalFailResponse` | the above plus `txId` | dataset POST,\
+    \ subject |\n| `GatewayFailResponse` | `{txId, error{errorCode, errorDetails}, message, status}` |\
+    \ common gateway errors |\n| `CentralLabFailResponse` | same shape as above, different `errorCode`\
+    \ set | central-lab |\n\n## Version segment\n\n| Target | Path | Note |\n|--------|------|------|\n\
+    | CRF upload | `/api/1.00` | |\n| dataset, subject | `/api/1.00` | |\n| central-lab | `/api/{version}`\
+    \ | v1, v2 |\n\n## Authentication\n\nHTTP Basic Authentication (RFC 7617), verified by the gateway.\n\
+    \nThis API is stateless. There is no login or session step, so every request must\ncarry its credentials\
+    \ in the header.\n\n```\nAuthorization: Basic {base64(clientId:clientSecret)}\n```\n\nJoin the clientId\
+    \ and password issued to you with `:` and Base64-encode the\nresult (RFC 7235 4.2).\n\n| Caution |\
+    \ Detail |\n|---------|--------|\n| Credential characters | Use ASCII only. A charset mismatch between\
+    \ encoding and decoding returns 401 |\n| No line breaks | MIME-style encoders wrap every 76 characters\
+    \ and corrupt the header value |\n| Every request | There is no session to authenticate once and reuse\
+    \ |\n\n### Query string encoding\n\nEncode parameters before sending them, but encode them **only\
+    \ once**. Passing an\nalready-encoded string back through a URI template turns `%40` into `%2540`,\
+    \ and\nthe value stops matching.\n\nA `+` inside a value must be encoded as `%2B`. In a query string\
+    \ `+` means a\nspace, and RFC 3986 encoders may leave it as is, so `user+tag@example.com`\narrives\
+    \ as `user tag@example.com`.\n\nThis applies to `userId` (an email address) and `fileKey`.\n\n| Symptom\
+    \ | Cause |\n|---------|-------|\n| 200 with an empty result | The value was encoded twice |\n| Text\
+    \ after `+` in an email became a space | `+` was not encoded as `%2B` |\n\n### txId\n\nThe unique\
+    \ identifier tying one transaction together from request to response.\n**The client generates it as\
+    \ a UUID version 1** and sends it. 36 bytes max.\n\n- **It is not a deduplication key.** Sending the\
+    \ same `txId` again is not\n  rejected, so retrying a write applies it twice.\n- **Do not sort by\
+    \ it.** Depending on the generator, the embedded timestamp is\n  not monotonic.\n\n---\n\nCopyright\
+    \ (c) CRScube Co., Ltd. All Rights Reserved\n"
   contact:
     name: CRScube
     url: https://crscube.io
