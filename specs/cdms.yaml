@@ -179,6 +179,21 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ApiRequest'
+            example:
+              txId: 550e8400-e29b-41d4-a716-446655440001
+              userId: user@example.com
+              roleId: PI
+              reason: initial data
+              tranKey: 20260806001
+              dataList:
+                - visitCode: '1'
+                  crfgrpCode: '3'
+                  itemId: BRTHDTC
+                  subItemId: DM
+                  rowNo: 0
+                  rowNoParent: 0
+                  value: 2001-01
+                  delFlag: false
       responses:
         '200':
           description: |
@@ -191,8 +206,9 @@ paths:
                 success:
                   summary: 성공
                   value:
-                    txId: 6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91
+                    txId: 550e8400-e29b-41d4-a716-446655440001
                     result: true
+                    error: null
                 serverFailure:
                   summary: 서버 처리 실패 (HTTP 200)
                   value:
@@ -1077,13 +1093,25 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiResponse'
-          example:
-            txId: 6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91
-            result: false
-            error:
-              message: Validation failed
-              errors:
-                - '(4400) dataList[0].itemId: must not be blank'
+          examples:
+            missingRequired:
+              summary: 필수 파라미터 누락
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Validation failed
+                  errors:
+                    - '(4400) userId: must not be null'
+            itemValidation:
+              summary: dataList 항목 검증 실패
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Validation failed
+                  errors:
+                    - '(4400) dataList[0].itemId: must not be blank'
     GatewayServerError:
       description: |
         분류되지 않은 서버 오류 (`SERVER_UNKNOWN`).
@@ -1095,6 +1123,7 @@ components:
           schema:
             $ref: '#/components/schemas/ApiResponse'
           example:
+            txId: 550e8400-e29b-41d4-a716-446655440000
             result: false
             error:
               message: Internal Server Error
@@ -1384,13 +1413,52 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiResponse'
-          example:
-            txId: 550e8400-e29b-41d4-a716-446655440000
-            result: false
-            error:
-              message: Forbidden
-              errors:
-                - (4403) No api privilege
+          examples:
+            locked:
+              summary: 계정 잠김
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Forbidden
+                  errors:
+                    - (4403) User account is locked
+            disabled:
+              summary: 계정 비활성
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Forbidden
+                  errors:
+                    - (4403) User is disabled
+            expired:
+              summary: 계정 만료
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Forbidden
+                  errors:
+                    - (4403) User account has expired
+            noStudyPrivilege:
+              summary: 과제 권한 없음
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Forbidden
+                  errors:
+                    - (4403) No study privilege
+            noApiPrivilege:
+              summary: API 권한 없음
+              value:
+                txId: 550e8400-e29b-41d4-a716-446655440000
+                result: false
+                error:
+                  message: Forbidden
+                  errors:
+                    - (4403) No api privilege
     CrfNotFound:
       description: 요청한 URI 가 존재하지 않습니다.
       content:
@@ -1854,7 +1922,7 @@ components:
           description: |
             Transaction Id (UUID version 1). 응답과 에러 응답에 그대로 반환됩니다.
             호출마다 새로 생성해 보내세요.
-          example: 6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91
+          example: 550e8400-e29b-41d4-a716-446655440001
         userId:
           type: string
           maxLength: 60
@@ -1874,10 +1942,12 @@ components:
           maxLength: 1000
           nullable: true
           description: 변경·전송 사유(Audit Trail 에 기록). 선택.
+          example: initial data
         tranKey:
           type: integer
           format: int64
           description: 호출 측 트랜잭션 키.
+          example: 20260806001
         dataList:
           type: array
           description: |
@@ -1900,6 +1970,7 @@ components:
           type: string
           maxLength: 20
           description: 방문(Visit) 코드. CDMS 세팅 값과 일치해야 합니다.
+          example: '1'
         crfgrpCode:
           type: string
           maxLength: 20
@@ -1907,22 +1978,27 @@ components:
           description: |
             CRF 그룹 코드.
             **생략하거나 null 이면 Item 정보로 자동 입력됩니다.**
+          example: '3'
         itemId:
           type: string
           maxLength: 20
           description: 항목(Item) ID.
+          example: BRTHDTC
         subItemId:
           type: string
           maxLength: 100
           description: 하위 항목(Sub Item) ID.
+          example: DM
         rowNo:
           type: integer
           format: int64
           description: 행 번호.
+          example: 0
         rowNoParent:
           type: integer
           format: int64
           description: 상위 행 번호.
+          example: 0
         value:
           type: string
           maxLength: 4000
@@ -1930,9 +2006,11 @@ components:
             Item value.
 
             계약상 **필수** 입니다.
+          example: 2001-01
         delFlag:
           type: boolean
-          description: 삭제 여부.
+          description: 삭제 여부. true 면 삭제합니다.
+          example: false
     ApiResponse:
       type: object
       description: |

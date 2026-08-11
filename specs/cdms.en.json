@@ -84,6 +84,25 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ApiRequest"
+              },
+              "example": {
+                "txId": "550e8400-e29b-41d4-a716-446655440001",
+                "userId": "user@example.com",
+                "roleId": "PI",
+                "reason": "initial data",
+                "tranKey": 20260806001,
+                "dataList": [
+                  {
+                    "visitCode": "1",
+                    "crfgrpCode": "3",
+                    "itemId": "BRTHDTC",
+                    "subItemId": "DM",
+                    "rowNo": 0,
+                    "rowNoParent": 0,
+                    "value": "2001-01",
+                    "delFlag": false
+                  }
+                ]
               }
             }
           }
@@ -100,8 +119,9 @@
                   "success": {
                     "summary": "Success",
                     "value": {
-                      "txId": "6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91",
-                      "result": true
+                      "txId": "550e8400-e29b-41d4-a716-446655440001",
+                      "result": true,
+                      "error": null
                     }
                   },
                   "serverFailure": {
@@ -1318,14 +1338,32 @@
             "schema": {
               "$ref": "#/components/schemas/ApiResponse"
             },
-            "example": {
-              "txId": "6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91",
-              "result": false,
-              "error": {
-                "message": "Validation failed",
-                "errors": [
-                  "(4400) dataList[0].itemId: must not be blank"
-                ]
+            "examples": {
+              "missingRequired": {
+                "summary": "Required parameter missing",
+                "value": {
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "result": false,
+                  "error": {
+                    "message": "Validation failed",
+                    "errors": [
+                      "(4400) userId: must not be null"
+                    ]
+                  }
+                }
+              },
+              "itemValidation": {
+                "summary": "dataList item validation failed",
+                "value": {
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "result": false,
+                  "error": {
+                    "message": "Validation failed",
+                    "errors": [
+                      "(4400) dataList[0].itemId: must not be blank"
+                    ]
+                  }
+                }
               }
             }
           }
@@ -1339,6 +1377,7 @@
               "$ref": "#/components/schemas/ApiResponse"
             },
             "example": {
+              "txId": "550e8400-e29b-41d4-a716-446655440000",
               "result": false,
               "error": {
                 "message": "Internal Server Error",
@@ -1674,14 +1713,71 @@
             "schema": {
               "$ref": "#/components/schemas/ApiResponse"
             },
-            "example": {
-              "txId": "550e8400-e29b-41d4-a716-446655440000",
-              "result": false,
-              "error": {
-                "message": "Forbidden",
-                "errors": [
-                  "(4403) No api privilege"
-                ]
+            "examples": {
+              "locked": {
+                "summary": "Account locked",
+                "value": {
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "result": false,
+                  "error": {
+                    "message": "Forbidden",
+                    "errors": [
+                      "(4403) User account is locked"
+                    ]
+                  }
+                }
+              },
+              "disabled": {
+                "summary": "Account disabled",
+                "value": {
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "result": false,
+                  "error": {
+                    "message": "Forbidden",
+                    "errors": [
+                      "(4403) User is disabled"
+                    ]
+                  }
+                }
+              },
+              "expired": {
+                "summary": "Account expired",
+                "value": {
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "result": false,
+                  "error": {
+                    "message": "Forbidden",
+                    "errors": [
+                      "(4403) User account has expired"
+                    ]
+                  }
+                }
+              },
+              "noStudyPrivilege": {
+                "summary": "No study privilege",
+                "value": {
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "result": false,
+                  "error": {
+                    "message": "Forbidden",
+                    "errors": [
+                      "(4403) No study privilege"
+                    ]
+                  }
+                }
+              },
+              "noApiPrivilege": {
+                "summary": "No API privilege",
+                "value": {
+                  "txId": "550e8400-e29b-41d4-a716-446655440000",
+                  "result": false,
+                  "error": {
+                    "message": "Forbidden",
+                    "errors": [
+                      "(4403) No api privilege"
+                    ]
+                  }
+                }
               }
             }
           }
@@ -2222,7 +2318,7 @@
             "type": "string",
             "maxLength": 36,
             "description": "Transaction Id (UUID version 1). Echoed back in both success and error\nresponses. Generate a new one for every call.\n",
-            "example": "6f1a4f0e-2f2d-4a4d-9c2c-6d0f1a3b8e91"
+            "example": "550e8400-e29b-41d4-a716-446655440001"
           },
           "userId": {
             "type": "string",
@@ -2241,12 +2337,14 @@
             "type": "string",
             "maxLength": 1000,
             "nullable": true,
-            "description": "Reason for the change or transfer, recorded in the Audit Trail. Optional."
+            "description": "Reason for the change or transfer, recorded in the Audit Trail. Optional.",
+            "example": "initial data"
           },
           "tranKey": {
             "type": "integer",
             "format": "int64",
-            "description": "Transaction key on the caller side."
+            "description": "Transaction key on the caller side.",
+            "example": 20260806001
           },
           "dataList": {
             "type": "array",
@@ -2273,42 +2371,50 @@
           "visitCode": {
             "type": "string",
             "maxLength": 20,
-            "description": "Visit code. Must match the value configured in CDMS."
+            "description": "Visit code. Must match the value configured in CDMS.",
+            "example": "1"
           },
           "crfgrpCode": {
             "type": "string",
             "maxLength": 20,
             "nullable": true,
-            "description": "CRF group code.\n**If omitted or null, it is filled in automatically from the Item information.**\n"
+            "description": "CRF group code.\n**If omitted or null, it is filled in automatically from the Item information.**\n",
+            "example": "3"
           },
           "itemId": {
             "type": "string",
             "maxLength": 20,
-            "description": "Item ID."
+            "description": "Item ID.",
+            "example": "BRTHDTC"
           },
           "subItemId": {
             "type": "string",
             "maxLength": 100,
-            "description": "Sub Item ID."
+            "description": "Sub Item ID.",
+            "example": "DM"
           },
           "rowNo": {
             "type": "integer",
             "format": "int64",
-            "description": "Row number."
+            "description": "Row number.",
+            "example": 0
           },
           "rowNoParent": {
             "type": "integer",
             "format": "int64",
-            "description": "Parent row number."
+            "description": "Parent row number.",
+            "example": 0
           },
           "value": {
             "type": "string",
             "maxLength": 4000,
-            "description": "Item value.\n\n**Required** by contract.\n"
+            "description": "Item value.\n\n**Required** by contract.\n",
+            "example": "2001-01"
           },
           "delFlag": {
             "type": "boolean",
-            "description": "Whether the item is deleted."
+            "description": "Whether to delete. Deletes the item when true.",
+            "example": false
           }
         }
       },
