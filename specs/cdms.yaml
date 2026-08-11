@@ -120,9 +120,44 @@ info:
     문자열을 URI 템플릿으로 다시 넘기면 `%40` 이 `%2540` 이 되어 매칭에
     실패합니다.
 
+    Rest Template 이나 WebClient 는 문자열로 URL 을 넘기면 URI 템플릿으로 다시
+    파싱·인코딩합니다. **문자열이 아니라 URI 타입으로 넘기세요.**
+
+    ```java
+    // URI 를 직접 만드는 경우
+    String url = "https://api.example.com/";
+    Map<String, String> params = new HashMap<>();
+    params.put("userEmail", "test\"?=!@example.com");
+
+    String requestUri = params.entrySet().stream()
+                              .map(it -> it.getKey() + "=" + URLEncoder.encode(it.getValue(), StandardCharsets.UTF_8.name()))
+                              .collect(Collectors.joining("&", url + "?", ""));
+
+    URI uri = URI.create(requestUri);
+    ```
+
     값에 들어 있는 `+` 는 반드시 `%2B` 로 인코딩하세요. 쿼리 스트링에서 `+` 는
     공백으로 해석됩니다. RFC 3986 기준 인코더는 `+` 를 그대로 두기도 해서,
     `user+tag@example.com` 이 `user tag@example.com` 으로 도착합니다.
+
+    ```java
+    // UriComponentsBuilder 로 만드는 경우 — "+" 를 "%2B" 로 바꿔야 합니다.
+    String url = "https://api.example.com/";
+    Map<String, String> params = new HashMap<>();
+    params.put("userEmail", "test\"?=!@example.com");
+
+    final UriBuilder builder = (new DefaultUriBuilderFactory()).uriString(url);
+    for (Map.Entry<String, String> entry : params.entrySet()) {
+        builder.queryParam(entry.getKey(), entry.getValue());
+    }
+    final URI temporal = builder.build();
+    final URI uri = UriComponentsBuilder.fromUri(temporal)
+                                        .replaceQuery(temporal.getRawQuery().replace("+", "%2B"))
+                                        .build(true)
+                                        .toUri();
+    ```
+
+    `build(true)` 는 이미 인코딩된 값이라는 표시입니다. 빼면 또 인코딩됩니다.
 
     `userId`(이메일 주소)와 `fileKey` 가 여기에 해당합니다.
 

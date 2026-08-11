@@ -47,8 +47,22 @@ info:
     \ request | There is no session to authenticate once and reuse |\n\n### Query string encoding\n\n\
     Encode parameters before sending them, but encode them **only once**. Passing an\nalready-encoded\
     \ string back through a URI template turns `%40` into `%2540`, and\nthe value stops matching.\n\n\
-    A `+` inside a value must be encoded as `%2B`. In a query string `+` means a\nspace, and RFC 3986\
-    \ encoders may leave it as is, so `user+tag@example.com`\narrives as `user tag@example.com`.\n\nThis\
+    Rest Template and WebClient re-parse and re-encode a URL passed as a string,\ntreating it as a URI\
+    \ template. **Pass a URI, not a string.**\n\n```java\n// Building the URI directly\nString url = \"\
+    https://api.example.com/\";\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\"\
+    , \"test\\\"?=!@example.com\");\n\nString requestUri = params.entrySet().stream()\n              \
+    \            .map(it -> it.getKey() + \"=\" + URLEncoder.encode(it.getValue(), StandardCharsets.UTF_8.name()))\n\
+    \                          .collect(Collectors.joining(\"&\", url + \"?\", \"\"));\n\nURI uri = URI.create(requestUri);\n\
+    ```\n\nA `+` inside a value must be encoded as `%2B`. In a query string `+` means a\nspace, and RFC\
+    \ 3986 encoders may leave it as is, so `user+tag@example.com`\narrives as `user tag@example.com`.\n\
+    \n```java\n// Building it with UriComponentsBuilder - replace \"+\" with \"%2B\".\nString url = \"\
+    https://api.example.com/\";\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\"\
+    , \"test\\\"?=!@example.com\");\n\nfinal UriBuilder builder = (new DefaultUriBuilderFactory()).uriString(url);\n\
+    for (Map.Entry<String, String> entry : params.entrySet()) {\n    builder.queryParam(entry.getKey(),\
+    \ entry.getValue());\n}\nfinal URI temporal = builder.build();\nfinal URI uri = UriComponentsBuilder.fromUri(temporal)\n\
+    \                                    .replaceQuery(temporal.getRawQuery().replace(\"+\", \"%2B\"))\n\
+    \                                    .build(true)\n                                    .toUri();\n\
+    ```\n\n`build(true)` marks the value as already encoded. Drop it and it gets encoded again.\n\nThis\
     \ applies to `userId` (an email address) and `fileKey`.\n\n| Symptom | Cause |\n|---------|-------|\n\
     | 200 with an empty result | The value was encoded twice |\n| Text after `+` in an email became a\
     \ space | `+` was not encoded as `%2B` |\n\n### txId\n\nThe unique identifier tying one transaction\
