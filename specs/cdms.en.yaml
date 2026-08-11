@@ -44,15 +44,15 @@ info:
     \ {\"Authorization\": f\"Basic {auth}\"}\n```\n\n| Caution | Detail |\n|---------|--------|\n| Credential\
     \ characters | Use ASCII only. A charset mismatch between encoding and decoding returns 401 |\n| No\
     \ line breaks | MIME-style encoders wrap every 76 characters and corrupt the header value |\n| Every\
-    \ request | There is no session to authenticate once and reuse |\n\n### Query string encoding\n\n\
-    Encode parameters before sending them, but encode them **only once**. Passing an\nalready-encoded\
-    \ string back through a URI template turns `%40` into `%2540`, and\nthe value stops matching.\n\n\
-    Rest Template and WebClient re-parse and re-encode a URL passed as a string,\ntreating it as a URI\
-    \ template. **Pass a URI, not a string.**\n\n```java\n// Building the URI directly\nString url = \"\
-    https://api.example.com/\";\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\"\
-    , \"test\\\"?=!@example.com\");\n\nString requestUri = params.entrySet().stream()\n              \
-    \            .map(it -> it.getKey() + \"=\" + URLEncoder.encode(it.getValue(), StandardCharsets.UTF_8.name()))\n\
-    \                          .collect(Collectors.joining(\"&\", url + \"?\", \"\"));\n\nURI uri = URI.create(requestUri);\n\
+    \ request | There is no session to authenticate once and reuse |\n\n## Query string encoding\n\nEncode\
+    \ parameters before sending them, but encode them **only once**. Passing an\nalready-encoded string\
+    \ back through a URI template turns `%40` into `%2540`, and\nthe value stops matching.\n\nRest Template\
+    \ and WebClient re-parse and re-encode a URL passed as a string,\ntreating it as a URI template. **Pass\
+    \ a URI, not a string.**\n\n```java\n// Building the URI directly\nString url = \"https://api.example.com/\"\
+    ;\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\", \"test\\\"?=!@example.com\"\
+    );\n\nString requestUri = params.entrySet().stream()\n                          .map(it -> it.getKey()\
+    \ + \"=\" + URLEncoder.encode(it.getValue(), StandardCharsets.UTF_8.name()))\n                   \
+    \       .collect(Collectors.joining(\"&\", url + \"?\", \"\"));\n\nURI uri = URI.create(requestUri);\n\
     ```\n\nA `+` inside a value must be encoded as `%2B`. In a query string `+` means a\nspace, and RFC\
     \ 3986 encoders may leave it as is, so `user+tag@example.com`\narrives as `user tag@example.com`.\n\
     \n```java\n// Building it with UriComponentsBuilder - replace \"+\" with \"%2B\".\nString url = \"\
@@ -65,10 +65,10 @@ info:
     ```\n\n`build(true)` marks the value as already encoded. Drop it and it gets encoded again.\n\nThis\
     \ applies to `userId` (an email address) and `fileKey`.\n\n| Symptom | Cause |\n|---------|-------|\n\
     | 200 with an empty result | The value was encoded twice |\n| Text after `+` in an email became a\
-    \ space | `+` was not encoded as `%2B` |\n\n### txId\n\nThe unique identifier tying one transaction\
-    \ together from request to response.\n**The client generates it as a UUID version 1** and sends it.\
-    \ 36 bytes max.\n\n```python\nimport uuid\ntx_id = str(uuid.uuid1())\n```\n\n```javascript\nimport\
-    \ { v1 as uuidv1 } from \"uuid\";\nconst txId = uuidv1();\n```\n\nThe JDK has no version 1 generator\
+    \ space | `+` was not encoded as `%2B` |\n\n## Generating txId\n\nThe unique identifier tying one\
+    \ transaction together from request to response.\n**The client generates it as a UUID version 1**\
+    \ and sends it. 36 bytes max.\n\n```python\nimport uuid\ntx_id = str(uuid.uuid1())\n```\n\n```javascript\n\
+    import { v1 as uuidv1 } from \"uuid\";\nconst txId = uuidv1();\n```\n\nThe JDK has no version 1 generator\
     \ (`randomUUID` is version 4). Build one\nyourself or use a library.\n\n```java\n// Reference: https://www.baeldung.com/java-uuid\n\
     public static void printUUID() {\n    System.out.println(\"UUID:\" + generateType1UUID().toString());\n\
     }\n\nprivate static UUID generateType1UUID() {\n    long most64SigBits = get64MostSignificantBitsForVersion1();\n\
