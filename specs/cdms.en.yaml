@@ -767,7 +767,7 @@ paths:
                     - success
               example:
                 result:
-                  fileKey: '3850993'
+                  fileKey: 1346145
                 status: success
         '400':
           $ref: '#/components/responses/CentralLabBadRequest'
@@ -826,7 +826,7 @@ paths:
                   summary: Sync succeeded
                   value:
                     result:
-                      fileKey: '3826822'
+                      fileKey: 1346145
                       validityCheck: Partially Successful
                       crfSync: Success
                       message: Only validated Central Lab data synced.
@@ -1329,13 +1329,20 @@ components:
       name: fileKey
       in: path
       required: true
-      description: 'Central Lab upload job identifier. This is the `result.fileKey` value from the `POST
-        /central-labs` response.
+      description: 'Identifier of a Central Lab upload job.
+
+        **Use the `result.fileKey` returned by the data upload (`POST /central-labs`).**
+
+
+        An unknown value returns **401** (`NO_PAGE_PERMISSION`, "FileKey not exists"),
+
+        not 404.
 
         '
       schema:
-        type: string
-      example: '1346145'
+        type: integer
+        format: int64
+      example: 1346145
     PageNo:
       name: pageNo
       in: query
@@ -3204,13 +3211,14 @@ components:
       - fileKey
       properties:
         fileKey:
-          type: string
-          description: 'The created job key. Use it to poll progress and validation results.
+          type: integer
+          format: int64
+          description: 'The job key that was created. **Pass this value as the `fileKey` path
 
-            The documented example is a string (`"3850993"`).
+            variable when polling progress or fetching details.**
 
             '
-          example: '3850993'
+          example: 1346145
     CentralLabProgressResult:
       type: object
       description: 'Processing status of the upload job. The combination of `validityCheck` and
@@ -3246,12 +3254,10 @@ components:
       - crfSync
       properties:
         fileKey:
-          description: The documented examples contain both strings and numbers.
-          oneOf:
-          - type: string
-          - type: integer
-            format: int64
-          example: '3826822'
+          type: integer
+          format: int64
+          description: Key of the upload job that was queried. The requested value is echoed back.
+          example: 1346145
         validityCheck:
           type: string
           description: Validation status.
@@ -3263,13 +3269,14 @@ components:
           example: Partially Successful
         crfSync:
           type: string
-          description: 'eCRF synchronization status. A failure is shown as `-`.
+          description: 'eCRF sync status. It is `-` when validation failed and no sync was attempted.
 
             '
           enum:
           - Waiting
           - Success
           - Partially Successful
+          - Fail
           - '-'
           example: Success
         message:

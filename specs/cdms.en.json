@@ -820,7 +820,7 @@
                 },
                 "example": {
                   "result": {
-                    "fileKey": "3850993"
+                    "fileKey": 1346145
                   },
                   "status": "success"
                 }
@@ -902,7 +902,7 @@
                     "summary": "Sync succeeded",
                     "value": {
                       "result": {
-                        "fileKey": "3826822",
+                        "fileKey": 1346145,
                         "validityCheck": "Partially Successful",
                         "crfSync": "Success",
                         "message": "Only validated Central Lab data synced."
@@ -1493,11 +1493,12 @@
         "name": "fileKey",
         "in": "path",
         "required": true,
-        "description": "Central Lab upload job identifier. This is the `result.fileKey` value from the `POST /central-labs` response.\n",
+        "description": "Identifier of a Central Lab upload job.\n**Use the `result.fileKey` returned by the data upload (`POST /central-labs`).**\n\nAn unknown value returns **401** (`NO_PAGE_PERMISSION`, \"FileKey not exists\"),\nnot 404.\n",
         "schema": {
-          "type": "string"
+          "type": "integer",
+          "format": "int64"
         },
-        "example": "1346145"
+        "example": 1346145
       },
       "PageNo": {
         "name": "pageNo",
@@ -3359,9 +3360,10 @@
         ],
         "properties": {
           "fileKey": {
-            "type": "string",
-            "description": "The created job key. Use it to poll progress and validation results.\nThe documented example is a string (`\"3850993\"`).\n",
-            "example": "3850993"
+            "type": "integer",
+            "format": "int64",
+            "description": "The job key that was created. **Pass this value as the `fileKey` path\nvariable when polling progress or fetching details.**\n",
+            "example": 1346145
           }
         }
       },
@@ -3375,17 +3377,10 @@
         ],
         "properties": {
           "fileKey": {
-            "description": "The documented examples contain both strings and numbers.",
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer",
-                "format": "int64"
-              }
-            ],
-            "example": "3826822"
+            "type": "integer",
+            "format": "int64",
+            "description": "Key of the upload job that was queried. The requested value is echoed back.",
+            "example": 1346145
           },
           "validityCheck": {
             "type": "string",
@@ -3400,11 +3395,12 @@
           },
           "crfSync": {
             "type": "string",
-            "description": "eCRF synchronization status. A failure is shown as `-`.\n",
+            "description": "eCRF sync status. It is `-` when validation failed and no sync was attempted.\n",
             "enum": [
               "Waiting",
               "Success",
               "Partially Successful",
+              "Fail",
               "-"
             ],
             "example": "Success"

@@ -820,7 +820,7 @@
                 },
                 "example": {
                   "result": {
-                    "fileKey": "3850993"
+                    "fileKey": 1346145
                   },
                   "status": "success"
                 }
@@ -902,7 +902,7 @@
                     "summary": "연동 성공",
                     "value": {
                       "result": {
-                        "fileKey": "3826822",
+                        "fileKey": 1346145,
                         "validityCheck": "Partially Successful",
                         "crfSync": "Success",
                         "message": "Only validated Central Lab data synced."
@@ -1493,11 +1493,12 @@
         "name": "fileKey",
         "in": "path",
         "required": true,
-        "description": "Central Lab 업로드 작업 식별자. `POST /central-labs` 응답의 `result.fileKey` 값입니다.\n",
+        "description": "Central Lab 업로드 작업 식별자.\n**데이터 전송(`POST /central-labs`) 응답의 `result.fileKey` 를 그대로 씁니다.**\n\n없는 값을 넘기면 404 가 아니라 **401**(`NO_PAGE_PERMISSION`,\n\"FileKey not exists\")입니다.\n",
         "schema": {
-          "type": "string"
+          "type": "integer",
+          "format": "int64"
         },
-        "example": "1346145"
+        "example": 1346145
       },
       "PageNo": {
         "name": "pageNo",
@@ -3359,9 +3360,10 @@
         ],
         "properties": {
           "fileKey": {
-            "type": "string",
-            "description": "생성된 작업 키. 이후 진행 상태·검증 결과 조회에 사용합니다.\n문서 예시는 문자열입니다(`\"3850993\"`).\n",
-            "example": "3850993"
+            "type": "integer",
+            "format": "int64",
+            "description": "생성된 작업 키. **이후 진행 상태·상세 조회의 경로 변수 `fileKey` 에\n이 값을 그대로 넣습니다.**\n",
+            "example": 1346145
           }
         }
       },
@@ -3375,17 +3377,10 @@
         ],
         "properties": {
           "fileKey": {
-            "description": "문서 예시에 문자열과 숫자가 모두 등장합니다.",
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer",
-                "format": "int64"
-              }
-            ],
-            "example": "3826822"
+            "type": "integer",
+            "format": "int64",
+            "description": "조회한 업로드 작업의 키. 요청한 값이 그대로 돌아옵니다.",
+            "example": 1346145
           },
           "validityCheck": {
             "type": "string",
@@ -3400,11 +3395,12 @@
           },
           "crfSync": {
             "type": "string",
-            "description": "eCRF 연동 상태. 실패는 `-` 로 표기됩니다.\n",
+            "description": "eCRF 연동 상태. 유효성 검사가 실패해 연동을 시도조차 못 하면 `-` 입니다.\n",
             "enum": [
               "Waiting",
               "Success",
               "Partially Successful",
+              "Fail",
               "-"
             ],
             "example": "Success"
