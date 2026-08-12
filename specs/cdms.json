@@ -3,7 +3,7 @@
   "info": {
     "title": "CDMS API",
     "version": "1.0.0",
-    "description": "CRScube CDMS 가 API 게이트웨이를 통해 외부에 노출하는 REST API 명세입니다.\n\nCDMS 연동에 사용하는 외부 공개 API 를 정리한 문서입니다.\n\n## 수록 범위\n\n| 영역 | 오퍼레이션 | 태그 |\n|------|-----------:|------|\n| CRF 데이터 업로드 | 1 | `crf` |\n| Dataset 추출 | 4 | `dataset` |\n| 시험대상자 등록 | 1 | `subject` |\n| Central Lab | 5 | `central-lab` |\n\n## 상태 코드를 읽는 법\n\nHTTP 상태 코드가 통념과 다르게 쓰이는 지점이 여러 곳 있습니다.\n연동 전에 반드시 확인하세요.\n\n| 상황 | 실제 응답 | 통념 |\n|------|-----------|------|\n| CRF 서버 측 처리 실패 | **200** + `result: false` | 5xx |\n| CRF 과제 접근 권한 없음 | **200** + `(2200)` | 403 |\n| 추출 작업 진행 중 / 다운로드 미완료 | **202** + `status: fail` | 409 |\n| 리소스 없음 (`RESOURCE_NOT_FOUND`) | **400** | 404 |\n| 권한 없음 (`FORBIDDEN`) | **400** | 403 |\n| dataset 내부 오류 (`INTERNAL_SERVER_ERROR`) | **400** | 500 |\n| Central Lab FileKey 없음 | **401** | 404 |\n| Central Lab 데이터 버퍼 초과 | **413** | 400 |\n| 스크리닝 번호 중복 (`CONFLICT`) | 409 | 409 |\n\n**2xx 를 성공으로 단정하지 마세요.** 200·202 에 실패가 실려 옵니다.\n\n401·403·404·500·504 는 **게이트웨이가** 반환합니다.\nCRF 엔드포인트만 이 오류도 `ApiResponse` 형식으로 전달하고, 나머지는\n`GatewayFailResponse` 형식을 씁니다.\n\n## 응답 형식\n\n| 응답 형식 | 구조 | 사용처 |\n|------|------|--------|\n| `ApiResponse` | `{txId, result, error{message, errors}}` | CRF, CRF 의 게이트웨이 오류 |\n| `SuccessResponse` / `FailResponse` | `{status, result}` / `{status, message, error{errorCode, errorDetails}}` | dataset GET |\n| `ExternalSuccessResponse` / `ExternalFailResponse` | 위 + `txId` | dataset POST, subject |\n| `GatewayFailResponse` | `{txId, error{errorCode, errorDetails}, message, status}` | 게이트웨이 공통 오류 |\n| `CentralLabFailResponse` | 위와 같은 형태, `errorCode` 집합이 다름 | central-lab |\n\n## 버전 세그먼트\n\n| 대상 | 경로 | 비고 |\n|------|------|------|\n| CRF 업로드 | `/api/1.00` | |\n| dataset·subject | `/api/1.00` | |\n| central-lab | `/api/{version}` | v1·v2 |\n\n## 인증\n\nHttp Basic Authentication (RFC 7617). 게이트웨이가 검증합니다.\n\n이 API 는 Stateless 입니다. 로그인·세션 절차가 없으므로 모든 요청이\n자격증명을 헤더로 직접 실어야 합니다.\n\n```\nAuthorization: Basic {base64(clientId:clientSecret)}\n```\n\n발급받은 clientId 와 password 를 `:` 로 이어 Base64 로 인코딩한 값입니다\n(RFC 7235 4.2). 대부분의 HTTP 클라이언트가 대신 만들어 줍니다(`curl -u` 등).\n직접 만든다면:\n\n```java\n// Apache Commons Codec\nfinal String clientId = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\nreturn new HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n    byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(Charset.forName(\"US-ASCII\")));\n    String authHeader = \"Basic \" + new String(encodedAuth);\n    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n// Base64Utils — Spring Framework 6 에서 제거되었습니다. 아래 방식을 쓰세요.\nfinal String clientId = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\nreturn new HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n    String authHeader = \"Basic \" + Base64Utils.encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n// java.util.Base64 — 별도 의존성이 필요 없습니다.\nString auth = clientId + \":\" + clientPassword;\nString authHeader = \"Basic \" + Base64.getEncoder()\n        .encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n```\n\n```python\nimport base64\nauth = base64.b64encode(f\"{client_id}:{client_password}\".encode(\"ascii\")).decode()\nheaders = {\"Authorization\": f\"Basic {auth}\"}\n```\n\n| 주의 | 내용 |\n|------|------|\n| 자격증명 문자 | ASCII 만 쓰세요. 인코딩·디코딩 charset 이 어긋나면 401 입니다 |\n| 개행 금지 | MIME 방식 인코더는 76자마다 줄을 바꿔 헤더 값을 깨뜨립니다 |\n| 매 요청 | 한 번 인증하고 세션을 재사용하는 구조가 아닙니다 |\n\n## 쿼리 스트링 인코딩\n\n파라미터는 전달 전에 인코딩하되 **한 번만** 인코딩해야 합니다. 이미 인코딩한\n문자열을 URI 템플릿으로 다시 넘기면 `%40` 이 `%2540` 이 되어 매칭에\n실패합니다.\n\nRest Template 이나 WebClient 는 문자열로 URL 을 넘기면 URI 템플릿으로 다시\n파싱·인코딩합니다. **문자열이 아니라 URI 타입으로 넘기세요.**\n\n```java\n// URI 를 직접 만드는 경우\nString url = \"https://api.example.com/\";\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\", \"test\\\"?=!@example.com\");\n\nString requestUri = params.entrySet().stream()\n                          .map(it -> it.getKey() + \"=\" + URLEncoder.encode(it.getValue(), StandardCharsets.UTF_8.name()))\n                          .collect(Collectors.joining(\"&\", url + \"?\", \"\"));\n\nURI uri = URI.create(requestUri);\n```\n\n값에 들어 있는 `+` 는 반드시 `%2B` 로 인코딩하세요. 쿼리 스트링에서 `+` 는\n공백으로 해석됩니다. RFC 3986 기준 인코더는 `+` 를 그대로 두기도 해서,\n`user+tag@example.com` 이 `user tag@example.com` 으로 도착합니다.\n\n```java\n// UriComponentsBuilder 로 만드는 경우 — \"+\" 를 \"%2B\" 로 바꿔야 합니다.\nString url = \"https://api.example.com/\";\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\", \"test\\\"?=!@example.com\");\n\nfinal UriBuilder builder = (new DefaultUriBuilderFactory()).uriString(url);\nfor (Map.Entry<String, String> entry : params.entrySet()) {\n    builder.queryParam(entry.getKey(), entry.getValue());\n}\nfinal URI temporal = builder.build();\nfinal URI uri = UriComponentsBuilder.fromUri(temporal)\n                                    .replaceQuery(temporal.getRawQuery().replace(\"+\", \"%2B\"))\n                                    .build(true)\n                                    .toUri();\n```\n\n`build(true)` 는 이미 인코딩된 값이라는 표시입니다. 빼면 또 인코딩됩니다.\n\n`userId`(이메일 주소)와 `fileKey` 가 여기에 해당합니다.\n\n| 증상 | 원인 |\n|------|------|\n| 200 인데 결과가 비어 있음 | 값이 두 번 인코딩됨 |\n| 이메일의 `+` 뒤가 공백이 됨 | `+` 를 `%2B` 로 인코딩하지 않음 |\n\n## txId 생성\n\n요청부터 응답까지 하나의 트랜잭션을 잇는 유일 식별자입니다. **클라이언트가\nUUID version 1 로 생성**해 전달합니다. 최대 36 Byte.\n\n```python\nimport uuid\ntx_id = str(uuid.uuid1())\n```\n\n```javascript\nimport { v1 as uuidv1 } from \"uuid\";\nconst txId = uuidv1();\n```\n\nJDK 에는 version 1 생성기가 없습니다(`randomUUID` 는 version 4). 직접\n구성하거나 별도 라이브러리를 쓰세요.\n\n```java\n// 참고: https://www.baeldung.com/java-uuid\npublic static void printUUID() {\n    System.out.println(\"UUID:\" + generateType1UUID().toString());\n}\n\nprivate static UUID generateType1UUID() {\n    long most64SigBits = get64MostSignificantBitsForVersion1();\n    long least64SigBits = get64LeastSignificantBitsForVersion1();\n\n    return new UUID(most64SigBits, least64SigBits);\n}\n\nprivate static long get64LeastSignificantBitsForVersion1() {\n    Random random = new Random();\n    long random63BitLong = random.nextLong() & 0x3FFFFFFFFFFFFFFFL;\n    long variant3BitFlag = 0x8000000000000000L;\n    return random63BitLong + variant3BitFlag;\n}\n\nprivate static long get64MostSignificantBitsForVersion1() {\n    LocalDateTime start = LocalDateTime.of(1582, 10, 15, 0, 0, 0);\n    Duration duration = Duration.between(start, LocalDateTime.now());\n    long seconds = duration.getSeconds();\n    long nanos = duration.getNano();\n    long timeForUuidIn100Nanos = seconds * 10000000 + nanos * 100;   // 아래 주의\n    long least12SignificatBitOfTime = (timeForUuidIn100Nanos & 0x000000000000FFFFL) >> 4;\n    long version = 1 << 12;\n    return (timeForUuidIn100Nanos & 0xFFFFFFFFFFFF0000L) + version + least12SignificatBitOfTime;\n}\n```\n\n- `nanos * 100` 은 `nanos / 100` 이어야 합니다. 시간 필드 단위가 100 나노초\n  이기 때문입니다. 유일성은 하위 63비트 난수에서 나오므로 실사용에 지장은\n  없지만, 박히는 타임스탬프가 어긋나고 단조 증가하지 않습니다.\n- **중복 방지 키가 아닙니다.** 같은 `txId` 로 다시 보내도 서버가 막지\n  않으므로, 쓰기 요청을 재시도하면 두 번 반영됩니다.\n- **시간 순서로 정렬하지 마세요.** 위 이유로 타임스탬프가 단조 증가하지\n  않습니다.\n\n---\n\nCopyright (c) CRScube Co., Ltd. All Rights Reserved\n",
+    "description": "CRScube CDMS 가 API 게이트웨이를 통해 외부에 노출하는 REST API 명세입니다.\n\nCDMS 연동에 사용하는 외부 공개 API 를 정리한 문서입니다.\n\n## 수록 범위\n\n| 영역 | 오퍼레이션 | 태그 |\n|------|-----------:|------|\n| CRF 데이터 업로드 | 1 | `crf` |\n| Dataset 추출 | 4 | `dataset` |\n| 시험대상자 등록 | 1 | `subject` |\n| Central Lab | 5 | `central-lab` |\n\n## 상태 코드를 읽는 법\n\nHTTP 상태 코드가 통념과 다르게 쓰이는 지점이 여러 곳 있습니다.\n연동 전에 반드시 확인하세요.\n\n| 상황 | 실제 응답 | 통념 |\n|------|-----------|------|\n| CRF 서버 측 처리 실패 | **200** + `result: false` | 5xx |\n| CRF 과제 접근 권한 없음 | **200** + `(2200)` | 403 |\n| 추출 작업 진행 중 / 다운로드 미완료 | **202** + `status: fail` | 409 |\n| 리소스 없음 (`RESOURCE_NOT_FOUND`) | **400** | 404 |\n| 권한 없음 (`FORBIDDEN`) | **400** | 403 |\n| dataset 내부 오류 (`INTERNAL_SERVER_ERROR`) | **400** | 500 |\n| Central Lab FileKey 없음 | **401** | 404 |\n| Central Lab 데이터 버퍼 초과 | **413** | 400 |\n| 스크리닝 번호 중복 (`CONFLICT`) | 409 | 409 |\n\n**2xx 를 성공으로 단정하지 마세요.** 200·202 에 실패가 실려 옵니다.\n\n401·403·404·500·504 는 **게이트웨이가** 반환합니다.\nCRF 엔드포인트만 이 오류도 `ApiResponse` 형식으로 전달하고, 나머지는\n`GatewayFailResponse` 형식을 씁니다.\n\n## 응답 형식\n\n| 응답 형식 | 구조 | 사용처 |\n|------|------|--------|\n| `ApiResponse` | `{txId, result, error{message, errors}}` | CRF, CRF 의 게이트웨이 오류 |\n| `SuccessResponse` / `FailResponse` | `{status, result}` / `{status, message, error{errorCode, errorDetails}}` | dataset GET |\n| `ExternalSuccessResponse` / `ExternalFailResponse` | 위 + `txId` | dataset POST, subject |\n| `GatewayFailResponse` | `{txId, error{errorCode, errorDetails}, message, status}` | 게이트웨이 공통 오류 |\n| `CentralLabFailResponse` | 위와 같은 형태, `errorCode` 집합이 다름 | central-lab |\n\n## 버전 세그먼트\n\n| 대상 | 경로 | 비고 |\n|------|------|------|\n| CRF 업로드 | `/api/1.00` | |\n| dataset·subject | `/api/1.00` | |\n| central-lab | `/api/{version}` | **v2** (v1 은 Deprecated) |\n\n## 인증\n\nHttp Basic Authentication (RFC 7617). 게이트웨이가 검증합니다.\n\n이 API 는 Stateless 입니다. 로그인·세션 절차가 없으므로 모든 요청이\n자격증명을 헤더로 직접 실어야 합니다.\n\n```\nAuthorization: Basic {base64(clientId:clientSecret)}\n```\n\n발급받은 clientId 와 password 를 `:` 로 이어 Base64 로 인코딩한 값입니다\n(RFC 7235 4.2). 대부분의 HTTP 클라이언트가 대신 만들어 줍니다(`curl -u` 등).\n직접 만든다면:\n\n```java\n// Apache Commons Codec\nfinal String clientId = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\nreturn new HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n    byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(Charset.forName(\"US-ASCII\")));\n    String authHeader = \"Basic \" + new String(encodedAuth);\n    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n// Base64Utils — Spring Framework 6 에서 제거되었습니다. 아래 방식을 쓰세요.\nfinal String clientId = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\nreturn new HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n    String authHeader = \"Basic \" + Base64Utils.encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n// java.util.Base64 — 별도 의존성이 필요 없습니다.\nString auth = clientId + \":\" + clientPassword;\nString authHeader = \"Basic \" + Base64.getEncoder()\n        .encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n```\n\n```python\nimport base64\nauth = base64.b64encode(f\"{client_id}:{client_password}\".encode(\"ascii\")).decode()\nheaders = {\"Authorization\": f\"Basic {auth}\"}\n```\n\n| 주의 | 내용 |\n|------|------|\n| 자격증명 문자 | ASCII 만 쓰세요. 인코딩·디코딩 charset 이 어긋나면 401 입니다 |\n| 개행 금지 | MIME 방식 인코더는 76자마다 줄을 바꿔 헤더 값을 깨뜨립니다 |\n| 매 요청 | 한 번 인증하고 세션을 재사용하는 구조가 아닙니다 |\n\n## 쿼리 스트링 인코딩\n\n파라미터는 전달 전에 인코딩하되 **한 번만** 인코딩해야 합니다. 이미 인코딩한\n문자열을 URI 템플릿으로 다시 넘기면 `%40` 이 `%2540` 이 되어 매칭에\n실패합니다.\n\nRest Template 이나 WebClient 는 문자열로 URL 을 넘기면 URI 템플릿으로 다시\n파싱·인코딩합니다. **문자열이 아니라 URI 타입으로 넘기세요.**\n\n```java\n// URI 를 직접 만드는 경우\nString url = \"https://api.example.com/\";\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\", \"test\\\"?=!@example.com\");\n\nString requestUri = params.entrySet().stream()\n                          .map(it -> it.getKey() + \"=\" + URLEncoder.encode(it.getValue(), StandardCharsets.UTF_8.name()))\n                          .collect(Collectors.joining(\"&\", url + \"?\", \"\"));\n\nURI uri = URI.create(requestUri);\n```\n\n값에 들어 있는 `+` 는 반드시 `%2B` 로 인코딩하세요. 쿼리 스트링에서 `+` 는\n공백으로 해석됩니다. RFC 3986 기준 인코더는 `+` 를 그대로 두기도 해서,\n`user+tag@example.com` 이 `user tag@example.com` 으로 도착합니다.\n\n```java\n// UriComponentsBuilder 로 만드는 경우 — \"+\" 를 \"%2B\" 로 바꿔야 합니다.\nString url = \"https://api.example.com/\";\nMap<String, String> params = new HashMap<>();\nparams.put(\"userEmail\", \"test\\\"?=!@example.com\");\n\nfinal UriBuilder builder = (new DefaultUriBuilderFactory()).uriString(url);\nfor (Map.Entry<String, String> entry : params.entrySet()) {\n    builder.queryParam(entry.getKey(), entry.getValue());\n}\nfinal URI temporal = builder.build();\nfinal URI uri = UriComponentsBuilder.fromUri(temporal)\n                                    .replaceQuery(temporal.getRawQuery().replace(\"+\", \"%2B\"))\n                                    .build(true)\n                                    .toUri();\n```\n\n`build(true)` 는 이미 인코딩된 값이라는 표시입니다. 빼면 또 인코딩됩니다.\n\n`userId`(이메일 주소)와 `fileKey` 가 여기에 해당합니다.\n\n| 증상 | 원인 |\n|------|------|\n| 200 인데 결과가 비어 있음 | 값이 두 번 인코딩됨 |\n| 이메일의 `+` 뒤가 공백이 됨 | `+` 를 `%2B` 로 인코딩하지 않음 |\n\n## txId 생성\n\n요청부터 응답까지 하나의 트랜잭션을 잇는 유일 식별자입니다. **클라이언트가\nUUID version 1 로 생성**해 전달합니다. 최대 36 Byte.\n\n```python\nimport uuid\ntx_id = str(uuid.uuid1())\n```\n\n```javascript\nimport { v1 as uuidv1 } from \"uuid\";\nconst txId = uuidv1();\n```\n\nJDK 에는 version 1 생성기가 없습니다(`randomUUID` 는 version 4). 직접\n구성하거나 별도 라이브러리를 쓰세요.\n\n```java\n// 참고: https://www.baeldung.com/java-uuid\npublic static void printUUID() {\n    System.out.println(\"UUID:\" + generateType1UUID().toString());\n}\n\nprivate static UUID generateType1UUID() {\n    long most64SigBits = get64MostSignificantBitsForVersion1();\n    long least64SigBits = get64LeastSignificantBitsForVersion1();\n\n    return new UUID(most64SigBits, least64SigBits);\n}\n\nprivate static long get64LeastSignificantBitsForVersion1() {\n    Random random = new Random();\n    long random63BitLong = random.nextLong() & 0x3FFFFFFFFFFFFFFFL;\n    long variant3BitFlag = 0x8000000000000000L;\n    return random63BitLong + variant3BitFlag;\n}\n\nprivate static long get64MostSignificantBitsForVersion1() {\n    LocalDateTime start = LocalDateTime.of(1582, 10, 15, 0, 0, 0);\n    Duration duration = Duration.between(start, LocalDateTime.now());\n    long seconds = duration.getSeconds();\n    long nanos = duration.getNano();\n    long timeForUuidIn100Nanos = seconds * 10000000 + nanos * 100;   // 아래 주의\n    long least12SignificatBitOfTime = (timeForUuidIn100Nanos & 0x000000000000FFFFL) >> 4;\n    long version = 1 << 12;\n    return (timeForUuidIn100Nanos & 0xFFFFFFFFFFFF0000L) + version + least12SignificatBitOfTime;\n}\n```\n\n- `nanos * 100` 은 `nanos / 100` 이어야 합니다. 시간 필드 단위가 100 나노초\n  이기 때문입니다. 유일성은 하위 63비트 난수에서 나오므로 실사용에 지장은\n  없지만, 박히는 타임스탬프가 어긋나고 단조 증가하지 않습니다.\n- **중복 방지 키가 아닙니다.** 같은 `txId` 로 다시 보내도 서버가 막지\n  않으므로, 쓰기 요청을 재시도하면 두 번 반영됩니다.\n- **시간 순서로 정렬하지 마세요.** 위 이유로 타임스탬프가 단조 증가하지\n  않습니다.\n\n---\n\nCopyright (c) CRScube Co., Ltd. All Rights Reserved\n",
     "contact": {
       "name": "CRScube",
       "url": "https://crscube.io"
@@ -90,7 +90,6 @@
                 "userId": "user@example.com",
                 "roleId": "PI",
                 "reason": "initial data",
-                "tranKey": 20260806001,
                 "dataList": [
                   {
                     "visitCode": "1",
@@ -552,7 +551,7 @@
             "$ref": "#/components/parameters/UserIdQuery"
           },
           {
-            "$ref": "#/components/parameters/RoleIdQueryRequired"
+            "$ref": "#/components/parameters/RoleIdQueryOptional"
           }
         ],
         "responses": {
@@ -757,7 +756,7 @@
         ],
         "operationId": "uploadCentralLabData",
         "summary": "Central Lab 데이터 전송",
-        "description": "Lab 검사 결과를 JSON 으로 전송합니다. 작업 ID(`fileKey`)를 즉시 반환하고\n처리는 비동기로 진행됩니다.\n\n진행 상태는 `GET /central-labs/{fileKey}` 로 조회합니다.\n\n## v1 과 v2 의 차이\n\n| 항목 | v1 | v2 |\n|------|----|----|\n| `txId` | 선택 | **필수** |\n| 오류 응답 | `result` 에 담음 | **`error` 에 담음** |\n\n이 명세는 v2 기준으로 기술했습니다.\n\n전송 가능한 `data` 항목은 BUILDER > DCL > Central Lab 세팅에 종속됩니다.\n설정된 항목의 **ID 를 JSON Key** 로 사용하며, 세팅하지 않은 항목은 보내지\n않아도 됩니다.\n",
+        "description": "Lab 검사 결과를 JSON 으로 전송합니다. 작업 ID(`fileKey`)를 즉시 반환하고\n처리는 비동기로 진행됩니다.\n\n진행 상태는 `GET /central-labs/{fileKey}` 로 조회합니다.\n\n## 버전\n\n**`v2` 를 쓰세요. `v1` 은 Deprecated 입니다.**\n\n| 항목 | v1 (Deprecated) | v2 |\n|------|----|----|\n| `txId` | 선택 | **필수** |\n| 오류 응답 | `result` 에 담음 | **`error` 에 담음** |\n\n이 명세는 v2 기준입니다. 요청 본문·응답 예시 모두 v2 를 따릅니다.\n\n전송 가능한 `data` 항목은 BUILDER > DCL > Central Lab 세팅에 종속됩니다.\n설정된 항목의 **ID 를 JSON Key** 로 사용하며, 세팅하지 않은 항목은 보내지\n않아도 됩니다.\n",
         "security": [
           {
             "gatewayBasicAuth": []
@@ -1439,17 +1438,6 @@
         },
         "example": "SPM"
       },
-      "RoleIdQueryRequired": {
-        "name": "roleId",
-        "in": "query",
-        "required": true,
-        "description": "역할 ID.\n\n**누락 시 항상 400 입니다.** 역할이 1개뿐인 사용자도 반드시 전송하세요.\n",
-        "schema": {
-          "type": "string",
-          "maxLength": 32
-        },
-        "example": "SPM"
-      },
       "AcceptLanguage": {
         "name": "Accept-Language",
         "in": "header",
@@ -1480,13 +1468,14 @@
         "name": "version",
         "in": "path",
         "required": true,
-        "description": "API 버전. 데이터 전송과 상태 조회는 v1 과 v2 를 모두 지원합니다.\nv2 의 변경점은 `txId` 필수 여부와, 오류를 `result` 가 아닌 `error` 에 담는 것입니다.\n",
+        "description": "API 버전. **`v2` 를 쓰세요.**\n\n| 버전 | 상태 |\n|------|------|\n| `v2` | 현행 |\n| `v1` | **Deprecated** — 신규 연동에 쓰지 마세요 |\n\n라우트가 버전 세그먼트를 변수로 두어 `v1` 도 아직 도달하지만, 이 명세는\n`v2` 기준으로 기술합니다. `v1` 은 `txId` 가 선택이고 오류를 `error` 가 아닌\n`result` 에 담아 응답 구조가 다릅니다.\n",
         "schema": {
           "type": "string",
           "enum": [
             "v1",
             "v2"
-          ]
+          ],
+          "default": "v2"
         },
         "example": "v2"
       },
@@ -2816,8 +2805,7 @@
         "required": [
           "txId",
           "userId",
-          "dataList",
-          "tranKey"
+          "dataList"
         ],
         "properties": {
           "txId": {
@@ -2845,12 +2833,6 @@
             "nullable": true,
             "description": "변경·전송 사유(Audit Trail 에 기록). 선택.",
             "example": "initial data"
-          },
-          "tranKey": {
-            "type": "integer",
-            "format": "int64",
-            "description": "호출 측 트랜잭션 키.",
-            "example": 20260806001
           },
           "dataList": {
             "type": "array",
@@ -2996,6 +2978,7 @@
         "required": [
           "txId",
           "userId",
+          "roleId",
           "domainList",
           "codeType",
           "fileType"
@@ -3015,8 +2998,7 @@
           "roleId": {
             "type": "string",
             "maxLength": 32,
-            "nullable": true,
-            "description": "요청 사용자의 역할 ID.\n역할이 둘 이상이면 지정해야 합니다. 없으면\n`REQUIRED_PARAMETER`(400, \"Role id must be specified.\")입니다.\n",
+            "description": "요청 사용자의 역할 ID.\n없으면 `REQUIRED_PARAMETER`(400, \"Role id must be specified.\")입니다.\n",
             "example": "PI"
           },
           "domainList": {
@@ -3176,7 +3158,7 @@
           "txId": {
             "type": "string",
             "maxLength": 36,
-            "description": "Transaction Id (UUID version 1).\n**v1 에서는 선택, v2 에서는 필수**입니다.\n",
+            "description": "Transaction Id (UUID version 1). **필수입니다.**\n\nDeprecated 된 `v1` 에서만 선택이었습니다.\n",
             "example": "01edf0ad-2e96-1f0a-9e66-745197c08f9a"
           },
           "data": {

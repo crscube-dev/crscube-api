@@ -25,21 +25,22 @@ info:
     \ common gateway errors |\n| `CentralLabFailResponse` | same shape as above, different `errorCode`\
     \ set | central-lab |\n\n## Version segment\n\n| Target | Path | Note |\n|--------|------|------|\n\
     | CRF upload | `/api/1.00` | |\n| dataset, subject | `/api/1.00` | |\n| central-lab | `/api/{version}`\
-    \ | v1, v2 |\n\n## Authentication\n\nHTTP Basic Authentication (RFC 7617), verified by the gateway.\n\
-    \nThis API is stateless. There is no login or session step, so every request must\ncarry its credentials\
-    \ in the header.\n\n```\nAuthorization: Basic {base64(clientId:clientSecret)}\n```\n\nJoin the clientId\
-    \ and password issued to you with `:` and Base64-encode the\nresult (RFC 7235 4.2). Most HTTP clients\
-    \ build this for you (`curl -u` and the\nlike). To build it yourself:\n\n```java\n// Apache Commons\
-    \ Codec\nfinal String clientId = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\n\
-    return new HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n    byte[] encodedAuth\
-    \ = Base64.encodeBase64(auth.getBytes(Charset.forName(\"US-ASCII\")));\n    String authHeader = \"\
-    Basic \" + new String(encodedAuth);\n    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n\
-    // Base64Utils - removed in Spring Framework 6. Prefer the approach below.\nfinal String clientId\
-    \ = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\nreturn new HttpHeaders() {{\n\
-    \    String auth = clientId + \":\" + clientPassword;\n    String authHeader = \"Basic \" + Base64Utils.encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n\
-    \    set(\"Authorization\", authHeader);\n}};\n```\n\n```java\n// java.util.Base64 - no extra dependency\
-    \ required.\nString auth = clientId + \":\" + clientPassword;\nString authHeader = \"Basic \" + Base64.getEncoder()\n\
-    \        .encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n```\n\n```python\nimport base64\n\
+    \ | **v2** (v1 is deprecated) |\n\n## Authentication\n\nHTTP Basic Authentication (RFC 7617), verified\
+    \ by the gateway.\n\nThis API is stateless. There is no login or session step, so every request must\n\
+    carry its credentials in the header.\n\n```\nAuthorization: Basic {base64(clientId:clientSecret)}\n\
+    ```\n\nJoin the clientId and password issued to you with `:` and Base64-encode the\nresult (RFC 7235\
+    \ 4.2). Most HTTP clients build this for you (`curl -u` and the\nlike). To build it yourself:\n\n\
+    ```java\n// Apache Commons Codec\nfinal String clientId = \"clientId\";\nfinal String clientPassword\
+    \ = \"clientPassword\";\nreturn new HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n\
+    \    byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(Charset.forName(\"US-ASCII\")));\n   \
+    \ String authHeader = \"Basic \" + new String(encodedAuth);\n    set(\"Authorization\", authHeader);\n\
+    }};\n```\n\n```java\n// Base64Utils - removed in Spring Framework 6. Prefer the approach below.\n\
+    final String clientId = \"clientId\";\nfinal String clientPassword = \"clientPassword\";\nreturn new\
+    \ HttpHeaders() {{\n    String auth = clientId + \":\" + clientPassword;\n    String authHeader =\
+    \ \"Basic \" + Base64Utils.encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n    set(\"Authorization\"\
+    , authHeader);\n}};\n```\n\n```java\n// java.util.Base64 - no extra dependency required.\nString auth\
+    \ = clientId + \":\" + clientPassword;\nString authHeader = \"Basic \" + Base64.getEncoder()\n   \
+    \     .encodeToString(auth.getBytes(StandardCharsets.US_ASCII));\n```\n\n```python\nimport base64\n\
     auth = base64.b64encode(f\"{client_id}:{client_password}\".encode(\"ascii\")).decode()\nheaders =\
     \ {\"Authorization\": f\"Basic {auth}\"}\n```\n\n| Caution | Detail |\n|---------|--------|\n| Credential\
     \ characters | Use ASCII only. A charset mismatch between encoding and decoding returns 401 |\n| No\
@@ -189,7 +190,6 @@ paths:
               userId: user@example.com
               roleId: PI
               reason: initial data
-              tranKey: 20260806001
               dataList:
               - visitCode: '1'
                 crfgrpCode: '3'
@@ -544,7 +544,7 @@ paths:
       - gatewayBasicAuth: []
       parameters:
       - $ref: '#/components/parameters/UserIdQuery'
-      - $ref: '#/components/parameters/RoleIdQueryRequired'
+      - $ref: '#/components/parameters/RoleIdQueryOptional'
       responses:
         '200':
           description: File body.
@@ -684,34 +684,37 @@ paths:
       - central-lab
       operationId: uploadCentralLabData
       summary: Upload Central Lab data
-      description: 'Sends lab test results as JSON. The job ID (`fileKey`) is returned
+      description: 'Sends lab results as JSON. Returns a job id (`fileKey`) immediately and
 
-        immediately and processing continues asynchronously.
-
-
-        Poll progress with `GET /central-labs/{fileKey}`.
+        processes asynchronously.
 
 
-        ## Differences between v1 and v2
+        Poll the progress with `GET /central-labs/{fileKey}`.
 
 
-        | Item | v1 | v2 |
+        ## Version
+
+
+        **Use `v2`. `v1` is deprecated.**
+
+
+        | Item | v1 (deprecated) | v2 |
 
         |------|----|----|
 
         | `txId` | optional | **required** |
 
-        | Error response | carried in `result` | **carried in `error`** |
+        | Error payload | carried in `result` | **carried in `error`** |
 
 
-        This specification describes v2.
+        This specification describes v2. Request bodies and response examples all follow v2.
 
 
-        The `data` items you can send depend on the BUILDER > DCL > Central Lab
+        Which `data` items you can send depends on the BUILDER > DCL > Central Lab
 
-        configuration. Use the **ID of each configured item as the JSON key**; items
+        setup. Use the **ID of a configured item as the JSON key**; items that are not
 
-        that are not configured may be omitted.
+        configured may be omitted.
 
         '
       security:
@@ -1251,20 +1254,6 @@ components:
         type: string
         maxLength: 32
       example: SPM
-    RoleIdQueryRequired:
-      name: roleId
-      in: query
-      required: true
-      description: 'Role ID.
-
-
-        **Omitting it always returns 400.** Send it even for a user with only one role.
-
-        '
-      schema:
-        type: string
-        maxLength: 32
-      example: SPM
     AcceptLanguage:
       name: Accept-Language
       in: header
@@ -1294,11 +1283,25 @@ components:
       name: version
       in: path
       required: true
-      description: 'API version. Data upload and status lookup support both v1 and v2.
+      description: 'API version. **Use `v2`.**
 
-        In v2, `txId` becomes required and errors are carried in `error` rather than
 
-        `result`.
+        | Version | Status |
+
+        |---------|--------|
+
+        | `v2` | Current |
+
+        | `v1` | **Deprecated** - do not use it for new integrations |
+
+
+        The route keeps the version segment as a variable, so `v1` still reaches the
+
+        server, but this specification describes `v2`. In `v1` the `txId` is optional
+
+        and errors are carried in `result` rather than `error`, so the response shape
+
+        differs.
 
         '
       schema:
@@ -1306,6 +1309,7 @@ components:
         enum:
         - v1
         - v2
+        default: v2
       example: v2
     CentralLabUserId:
       name: userId
@@ -2577,7 +2581,6 @@ components:
       - txId
       - userId
       - dataList
-      - tranKey
       properties:
         txId:
           type: string
@@ -2611,11 +2614,6 @@ components:
           nullable: true
           description: Reason for the change or transfer, recorded in the Audit Trail. Optional.
           example: initial data
-        tranKey:
-          type: integer
-          format: int64
-          description: Transaction key on the caller side.
-          example: 20260806001
         dataList:
           type: array
           description: 'CRF items to store. Each item is validated individually.
@@ -2776,6 +2774,7 @@ components:
       required:
       - txId
       - userId
+      - roleId
       - domainList
       - codeType
       - fileType
@@ -2792,12 +2791,9 @@ components:
         roleId:
           type: string
           maxLength: 32
-          nullable: true
           description: 'Role ID of the requesting user.
 
-            Required when the user has more than one role. Omitting it returns
-
-            `REQUIRED_PARAMETER` (400, "Role id must be specified.").
+            Omitting it returns `REQUIRED_PARAMETER` (400, "Role id must be specified.").
 
             '
           example: PI
@@ -3056,9 +3052,10 @@ components:
         txId:
           type: string
           maxLength: 36
-          description: 'Transaction Id (UUID version 1).
+          description: 'Transaction Id (UUID version 1). **Required.**
 
-            **Optional in v1, required in v2.**
+
+            It was optional only in the deprecated `v1`.
 
             '
           example: 01edf0ad-2e96-1f0a-9e66-745197c08f9a
