@@ -3117,15 +3117,13 @@ Contact your CRScube representative for the address of each region
 </script>
 
 <style>
-  [data-crscube-footer] { white-space: nowrap; }
-  [data-crscube-footer] a { display: inline; }
+  [data-crscube-footer] a { white-space: nowrap; }
 </style>
 
 <script>
 (function () {
   var HREF = "https://crscube.io";
-  var LABEL = "CRScube";
-  var PREFIX = "Copyright \u00a92026 ";
+  var LABEL = "Copyright \u00a92026 CRScube";
   var MAX_TRIES = 60;
 
   function apply() {
@@ -3140,7 +3138,6 @@ Contact your CRScube representative for the address of each region
     a.textContent = LABEL;
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
-    box.insertBefore(document.createTextNode(PREFIX), a);
     box.setAttribute('data-crscube-footer', '1');
     return true;
   }

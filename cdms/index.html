@@ -3017,15 +3017,13 @@ v2 의 변경점은 <code>txId</code> 필수 여부와, 오류를 <code>result</
 </script>
 
 <style>
-  [data-crscube-footer] { white-space: nowrap; }
-  [data-crscube-footer] a { display: inline; }
+  [data-crscube-footer] a { white-space: nowrap; }
 </style>
 
 <script>
 (function () {
   var HREF = "https://crscube.io";
-  var LABEL = "CRScube";
-  var PREFIX = "Copyright \u00a92026 ";
+  var LABEL = "Copyright \u00a92026 CRScube";
   var MAX_TRIES = 60;
 
   function apply() {
@@ -3040,7 +3038,6 @@ v2 의 변경점은 <code>txId</code> 필수 여부와, 오류를 <code>result</
     a.textContent = LABEL;
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
-    box.insertBefore(document.createTextNode(PREFIX), a);
     box.setAttribute('data-crscube-footer', '1');
     return true;
   }
