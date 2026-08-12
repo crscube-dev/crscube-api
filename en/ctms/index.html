@@ -2938,6 +2938,66 @@ also wrong.</p>
       Redoc.hydrate(__redoc_state, container);
 
       </script>
+
+<style>
+  [data-crscube-footer] { white-space: nowrap; }
+  [data-crscube-footer] a { display: inline; }
+</style>
+
+<script>
+(function () {
+  var HREF = "https://crscube.io";
+  var LABEL = "CRScube";
+  var PREFIX = "Copyright \u00a9 ";
+  var MAX_TRIES = 60;
+
+  function apply() {
+    var a = document.querySelector('a[href*="redocly.com"]');
+    if (!a || !a.parentNode) return false;
+
+    var box = a.parentNode;
+    if (box.getAttribute('data-crscube-footer')) return true;
+
+    // 기존 앵커를 재사용한다. ReDoc 이 준 스타일을 그대로 물려받는다.
+    a.href = HREF;
+    a.textContent = LABEL;
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+    box.insertBefore(document.createTextNode(PREFIX), a);
+    box.setAttribute('data-crscube-footer', '1');
+    return true;
+  }
+
+  function start() {
+    var tries = 0;
+    var timer = setInterval(function () {
+      if (apply() || ++tries >= MAX_TRIES) {
+        clearInterval(timer);
+        watch();
+      }
+    }, 100);
+  }
+
+  // React 가 사이드바를 다시 그리면 원래 표기가 돌아온다. 그때 다시 바꾼다.
+  function watch() {
+    var menu = document.querySelector('.menu-content') || document.body;
+    if (!window.MutationObserver) return;
+    var pending = false;
+    new MutationObserver(function () {
+      if (pending) return;
+      if (!document.querySelector('a[href*="redocly.com"]')) return;
+      pending = true;
+      setTimeout(function () { pending = false; apply(); }, 50);
+    }).observe(menu, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
+</script>
 </body>
 
 </html>
