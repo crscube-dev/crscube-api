@@ -32,14 +32,14 @@ the file as UTF-8 explicitly. A direct link works too, for example
 
 ## Access
 
-Credentials and host addresses are issued per integration. Contact
-api-support@crscube.com to request access.
+Credentials and host addresses are issued per integration. Contact your
+CRScube representative to request access.
 
 ## About this repository
 
 This repository holds generated documentation only — rendered reference pages
-and bundled specs. It is published automatically; please do not edit files here
-by hand. To report an error in the documentation, email api-support@crscube.com.
+and bundled specs. Please do not edit files here by hand.
+To report an error in the documentation, contact your CRScube representative.
 
 ## License
 
